@@ -7,7 +7,7 @@ implementing services as [`http://yaws.hyber.org/`](http://yaws.hyber.org/) appm
 
 The approach for implementing REST services is taken
 from [`http://www.infoq.com/articles/vinoski-erlang-rest`](http://www.infoq.com/articles/vinoski-erlang-rest).
-Example usage of [`yaws_cage_rest`](http://github.com/erisata/yaws_cage/blob/master/doc/yaws_cage_rest.md) module:
+Example usage of [`yaws_cage_rest`](yaws_cage_rest.md) module:
 
 ```
 -module(my_rest).
@@ -29,6 +29,6 @@ handle_request(Path, _Method, Arg, Opts) ->
 
 
 <table width="100%" border="0" summary="list of modules">
-<tr><td><a href="http://github.com/erisata/yaws_cage/blob/master/doc/yaws_cage_logger.md" class="module">yaws_cage_logger</a></td></tr>
-<tr><td><a href="http://github.com/erisata/yaws_cage/blob/master/doc/yaws_cage_rest.md" class="module">yaws_cage_rest</a></td></tr></table>
+<tr><td><a href="yaws_cage_logger.md" class="module">yaws_cage_logger</a></td></tr>
+<tr><td><a href="yaws_cage_rest.md" class="module">yaws_cage_rest</a></td></tr></table>
 
