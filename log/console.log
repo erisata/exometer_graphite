@@ -6,3 +6,94 @@
 2017-07-07 11:20:49.683 [info] <0.31.0> Application setup started on node nonode@nohost
 2017-07-07 11:20:49.695 [info] <0.101.0>@exometer_report:do_start_reporters:632 Starting reporters with []
 2017-07-07 11:20:49.695 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-07 13:24:48.447 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-07 13:24:48.449 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-07 13:24:48.463 [info] <0.101.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-07 13:24:48.463 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-07 16:18:22.767 [info] <0.33.0> Application lager started on node nonode@nohost
+2017-07-07 16:18:22.769 [info] <0.33.0> Application setup started on node nonode@nohost
+2017-07-07 16:18:22.790 [info] <0.104.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-07 16:18:22.790 [info] <0.33.0> Application exometer_core started on node nonode@nohost
+2017-07-10 09:04:18.722 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 09:04:18.722 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 09:04:18.737 [info] <0.104.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 09:04:18.737 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 10:19:55.892 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 10:19:55.894 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 10:19:55.906 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 10:19:55.906 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 10:24:54.502 [error] <0.107.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 10:24:54.502 [error] <0.109.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 10:24:54.502 [error] <0.110.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 10:25:35.031 [error] <0.113.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 10:25:35.032 [error] <0.115.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 10:25:35.033 [error] <0.116.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 10:38:17.304 [info] <0.121.0>@exometer_report_tty:exometer_init:57 exometer_report_tty([]): Starting
+2017-07-10 10:40:56.886 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 10:40:56.886 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 10:40:56.895 [info] <0.104.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 10:40:56.895 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 10:41:16.301 [info] <0.111.0>@exometer_report_tty:exometer_init:57 exometer_report_tty([]): Starting
+2017-07-10 11:05:57.589 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 11:05:57.590 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 11:05:57.603 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 11:05:57.603 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 11:07:45.494 [error] <0.109.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 11:07:45.496 [error] <0.111.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 11:07:45.497 [error] <0.112.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: {required,api_key} in exometer_graphite_reporter:get_opt/2 line 121
+2017-07-10 11:20:28.014 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 11:20:28.016 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 11:20:28.028 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 11:20:28.028 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 11:24:06.300 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 11:24:06.302 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 11:24:06.313 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 11:24:06.314 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 11:34:22.561 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 11:34:22.562 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 11:34:22.575 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 11:34:22.575 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 11:37:20.112 [error] <0.107.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3245>}])
+2017-07-10 11:37:21.116 [error] <0.112.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3298>}])
+2017-07-10 11:37:22.119 [error] <0.113.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3299>}])
+2017-07-10 11:37:23.123 [error] <0.114.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3300>}])
+2017-07-10 11:37:24.127 [error] <0.115.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3301>}])
+2017-07-10 11:37:25.130 [error] <0.116.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3302>}])
+2017-07-10 11:37:26.133 [error] <0.117.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3303>}])
+2017-07-10 11:37:27.136 [error] <0.118.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3304>}])
+2017-07-10 11:37:28.139 [error] <0.119.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3305>}])
+2017-07-10 11:37:29.142 [error] <0.120.0> CRASH REPORT Process exometer_graphite_reporter with 0 neighbours crashed with reason: call to undefined function lager:info("Unknown info: ~p", [{tcp_closed,#Port<0.3306>}])
+2017-07-10 11:44:41.239 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 11:44:41.240 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 11:44:41.253 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 11:44:41.253 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 11:52:40.003 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 11:52:40.005 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 11:52:40.018 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 11:52:40.018 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 11:54:12.330 [error] emulator Error in process <0.52.0> with exit value:
+{{case_clause,killed},[{shell,server_loop,7,[{file,"shell.erl"},{line,231}]}]}
+2017-07-10 11:59:39.458 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 11:59:39.460 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 11:59:39.472 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 11:59:39.473 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 12:02:09.586 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 12:02:09.587 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 12:02:09.600 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 12:02:09.600 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 12:14:46.935 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 12:14:46.936 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 12:14:46.949 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 12:14:46.949 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 13:29:36.325 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 13:29:36.326 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 13:29:36.339 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 13:29:36.340 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 13:47:04.250 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 13:47:04.252 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 13:47:04.265 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 13:47:04.266 [info] <0.31.0> Application exometer_core started on node nonode@nohost
+2017-07-10 14:00:39.199 [info] <0.31.0> Application lager started on node nonode@nohost
+2017-07-10 14:00:39.201 [info] <0.31.0> Application setup started on node nonode@nohost
+2017-07-10 14:00:39.214 [info] <0.102.0>@exometer_report:do_start_reporters:632 Starting reporters with []
+2017-07-10 14:00:39.214 [info] <0.31.0> Application exometer_core started on node nonode@nohost
