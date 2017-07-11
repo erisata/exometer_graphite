@@ -20,6 +20,7 @@
     {applications, [
         kernel,
         stdlib,
+        lager,
         exometer_core
     ]}
 ]}.

@@ -1,7 +1,7 @@
 -module(exometer_graphite_reporter).
+-compile([{parse_transform, lager_transform}]).
 -behaviour(exometer_reporter).
 
-%% gen_server callbacks
 -export(
    [
     exometer_init/1,
@@ -21,8 +21,9 @@
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, 2004).
 -define(DEFAULT_CONNECT_TIMEOUT, 5000).
+-define(SEND_TO_GRAPHITE_INTERVAL, 10000).
 
--record(st, {
+-record(state, {
           host = ?DEFAULT_HOST,
           port = ?DEFAULT_PORT,
           connect_timeout = ?DEFAULT_CONNECT_TIMEOUT,
@@ -30,78 +31,99 @@
           namespace = [],
           prefix = [],
           api_key = "",
-          socket = undefined}).
+          socket = undefined,
+          messages = []}).
 
 -include("log.hrl").
 
-% funkcija, kuri issiuncia hardcoded testine metrika 
-send_test_metric() ->
-    Payload = pickle:term_to_pickle([{<<"julyXtest.cpuUsage">>, {erlang:system_time(seconds), 1}}]),
-    N = byte_size(Payload),
-    Message = <<N:32/unsigned-big, Payload/binary>>,
-
-    {ok, Socket} = gen_udp:open(8000),
-    ok = gen_udp:send(Socket, {127, 0, 0, 1}, 2004, Message).
-
 exometer_init(Opts) ->
-    io:format("exometer_init CALLED~n"),
+    lager:info("exometer_init CALLED"),
     Host = ?DEFAULT_HOST,
     Port = ?DEFAULT_PORT,
     ConnectTimeout = ?DEFAULT_CONNECT_TIMEOUT,
 
     case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectTimeout) of
         {ok, Sock} ->
-            io:format("connected successfully~n"),
-            {ok, #st{socket = Sock,
+            lager:info("connected successfully"),
+            erlang:send_after(?SEND_TO_GRAPHITE_INTERVAL, self(), send),
+            {ok, #state{socket = Sock,
                     host = Host,
                     port = Port,
                     connect_timeout = ConnectTimeout }};
         {error, _} = Error ->
             Error
     end.
-
-exometer_report(Probe, DataPoint, _Extra, Value, #st{socket = Sock,
-                                                    api_key = APIKey,
-                                                    prefix = Prefix} = St) ->
-    io:format("exometer_report CALLED. Probe: ~p, DataPoint ~p, Value ~p~n", [Probe, DataPoint, Value]),
     
-    Payload = pickle:term_to_pickle([{<<"july99test.cpuUsage">>, {erlang:system_time(seconds), random:uniform(5)}}]),
+
+exometer_report(Probe, DataPoint, _Extra, Value, #state{socket = Sock,
+                                                    api_key = APIKey,
+                                                    prefix = Prefix,
+                                                    messages = Messages} = State) ->
+    lager:info("exometer_report CALLED. Probe: ~p, DataPoint ~p, Value ~p", [Probe, DataPoint, Value]),
+    
+    ProbeBinary = list_to_binary(format_probe(Probe, DataPoint)),
+
+    Payload = pickle:term_to_pickle([{ProbeBinary, {erlang:system_time(seconds), Value}}]),
     N = byte_size(Payload),
     Message = <<N:32/unsigned-big, Payload/binary>>,
+    
+    NewMessages = [Message|Messages],
+    {ok, State#state{messages = NewMessages}}.
 
-    case gen_tcp:send(Sock, Message) of
-        ok ->
-            {ok, St};
+exometer_subscribe(_Metric, _DataPoint, _Extra, _Interval, State) ->
+    {ok, State}.
+
+exometer_unsubscribe(_Metric, _DataPoint, _Extra, State) ->
+    {ok, State}.
+
+exometer_call(Unknown, From, State) ->
+    lager:info("Unknown call ~p from ~p", [Unknown, From]),
+    {ok, State}.
+
+exometer_cast(Unknown, State) ->
+    lager:info("Unknown cast: ~p", [Unknown]),
+    {ok, State}.
+
+exometer_info(send, State = #state{socket = Socket, messages = Messages}) ->    
+    lager:info("exometer_info invoked"),
+    lager:info("Messages: ~p", [Messages]),
+    case length(Messages) of
+        0 ->
+            erlang:send_after(?SEND_TO_GRAPHITE_INTERVAL, self(), send),
+            {ok, State};
         _ ->
-            reconnect(St)
-    end.
+            lager:info("sending aggregated message"),
+            case gen_tcp:send(Socket, Messages) of
+                ok ->
+                    lager:info("sent successfully!"),
+                    erlang:send_after(?SEND_TO_GRAPHITE_INTERVAL, self(), send),
+                    {ok, State#state{messages = []}};
+                _ ->
+                    reconnect(State)
+            end            
+    end;
+    
 
-exometer_subscribe(_Metric, _DataPoint, _Extra, _Interval, St) ->
-    {ok, St }.
+exometer_info(Unknown, State) ->
+    lager:info("Unknown info: ~p", [Unknown]),
+    {ok, State}.
 
-exometer_unsubscribe(_Metric, _DataPoint, _Extra, St) ->
-    {ok, St }.
+exometer_newentry(_Entry, State) ->
+    {ok, State}.
 
-exometer_call(Unknown, From, St) ->
-    io:format("Unknown call ~p from ~p", [Unknown, From]),
-    {ok, St}.
-
-exometer_cast(Unknown, St) ->
-    io:format("Unknown cast: ~p", [Unknown]),
-    {ok, St}.
-
-exometer_info(Unknown, St) ->
-    io:format("Unknown info: ~p", [Unknown]),
-    {ok, St}.
-
-exometer_newentry(_Entry, St) ->
-    {ok, St}.
-
-exometer_setopts(_Metric, _Options, _Status, St) ->
-    {ok, St}.
+exometer_setopts(_Metric, _Options, _Status, State) ->
+    {ok, State}.
 
 exometer_terminate(_, _) ->
     ignore.
+    
+format_probe(Probe, DataPoint) ->
+    string:join(lists:map(fun metric_elem_to_list/1, Probe), ".") ++ "." ++ atom_to_list(DataPoint).
+
+metric_elem_to_list(V) when is_atom(V) -> atom_to_list(V);
+metric_elem_to_list(V) when is_binary(V) -> binary_to_list(V);
+metric_elem_to_list(V) when is_integer(V) -> integer_to_list(V);
+metric_elem_to_list(V) when is_list(V) -> V.
 
 get_opt(K, Opts) ->
     case lists:keyfind(K, 1, Opts) of
@@ -109,11 +131,11 @@ get_opt(K, Opts) ->
         false  -> error({required, K})
     end.
 
-reconnect(St) ->
-    case gen_tcp:connect(St#st.host, St#st.port, [binary, {active, true}], St#st.connect_timeout) of
+reconnect(State = #state{host = Host, port = Port, connect_timeout = ConnectTimeout}) ->
+    case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectTimeout) of
         {ok, Sock} ->
-            io:format("reconnected successfully~n"),
-            {ok, #st{socket = Sock}};
+            lager:info("reconnected successfully"),
+            {ok, #state{socket = Sock}};
         {error, _} = Error ->
             Error
     end.
