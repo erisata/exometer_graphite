@@ -16,7 +16,7 @@
 
 %%% @doc
 %%% Module for Exometer and Graphite integration.
-%%% Modify sys.config to change integration settings.
+%%% Modify `sys.config' to change integration settings.
 %%% 
 -module(exometer_graphite_reporter).
 -behaviour(exometer_reporter).
