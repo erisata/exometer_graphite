@@ -70,24 +70,20 @@ exometer_init(_Opts) ->
     ConnectionTimeout = application:get_env(?APP, connection_timeout, ?DEFAULT_CONNECTION_TIMEOUT),
     GraphiteDelay = application:get_env(?APP, graphite_delay, ?DEFAULT_GRAPHITE_DELAY),
     State = #state{
-                host = Host,
-                port = Port,
-                connection_timeout = ConnectionTimeout,
-                graphite_delay = GraphiteDelay,
-                messages = []},
+        host = Host,
+        port = Port,
+        connection_timeout = ConnectionTimeout,
+        graphite_delay = GraphiteDelay,
+        messages = []
+    },
     erlang:send_after(GraphiteDelay, self(), send),
     {ok, State}.
 
-    
+
 %% @doc
 %% Receives probe, datapoint and its value from Exometer.
 %%
-exometer_report(Probe, DataPoint, _Extra, Value, State) ->
-    #state{
-        messages = Messages
-    } = State,
-    lager:info("exometer_report CALLED. Probe: ~p, DataPoint ~p, Value ~p", 
-        [Probe, DataPoint, Value]),
+exometer_report(Probe, DataPoint, _Extra, Value, State = #state{messages = Messages}) ->
     Message = create_message(Probe, DataPoint, Value),
     NewMessages = [Message | Messages],
     NewState = State#state{messages = NewMessages},
@@ -95,32 +91,32 @@ exometer_report(Probe, DataPoint, _Extra, Value, State) ->
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_subscribe(_Metric, _DataPoint, _Extra, _Interval, State) ->
     {ok, State}.
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_unsubscribe(_Metric, _DataPoint, _Extra, State) ->
     {ok, State}.
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_call(Unknown, From, State) ->
-    lager:info("Unknown call ~p from ~p", [Unknown, From]),
+    lager:warning("Unknown call ~p from ~p", [Unknown, From]),
     {ok, State}.
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_cast(Unknown, State) ->
-    lager:info("Unknown cast: ~p", [Unknown]),
+    lager:warning("Unknown cast: ~p", [Unknown]),
     {ok, State}.
 
 
@@ -136,7 +132,7 @@ exometer_info(send, State) ->
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_info(Unknown, State) ->
     lager:info("Unknown info: ~p", [Unknown]),
@@ -144,33 +140,33 @@ exometer_info(Unknown, State) ->
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_newentry(_Entry, State) ->
     {ok, State}.
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_setopts(_Metric, _Options, _Status, State) ->
     {ok, State}.
 
 
 %% @doc
-%% Unused
+%% Unused.
 %%
 exometer_terminate(_, _) ->
-    ignore.    
+    ignore.
 
 
 
 %%% ============================================================================
-%%% Internal functions
+%%% Internal functions.
 %%% ============================================================================
 
-%% @doc
-%% Ensures that state has a socket.
+%%  @private
+%%  Ensures that state has a socket.
 %%
 ensure_connection(State = #state{socket = undefined}) ->
     #state{
@@ -181,7 +177,7 @@ ensure_connection(State = #state{socket = undefined}) ->
     case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectionTimeout) of
         {ok, NewSocket} ->
             NewState = State#state{socket = NewSocket},
-            lager:info("returning NewSocket: ~p", [NewSocket]),
+            lager:debug("Connected, socket=~p", [NewSocket]),
             {ok, NewState};
         {error, Reason} ->
             {error, Reason}
@@ -191,8 +187,8 @@ ensure_connection(State) ->
     {ok, State}.
 
 
-%% @doc
-%% Removes socket from state and makes sure it is closed.
+%%  @private
+%%  Removes socket from state and makes sure it is closed.
 %%
 disconnect(State = #state{socket = undefined}) ->
     {ok, State};
@@ -209,11 +205,11 @@ disconnect(State) ->
     {ok, NewState}.
 
 
-%% @doc
-%% Manages connection to a socket and sending message to Graphite.
+%%  @private
+%%  Manages connection to a socket and sending message to Graphite.
 %%
 send(0, State) ->
-    lager:error("Error sending message. No more retries."),
+    lager:warning("Error sending message. No more retries."),
     {ok, State};
 
 send(Retries, State) ->
@@ -223,26 +219,21 @@ send(Retries, State) ->
                 {ok, AfterSentState} ->
                     {ok, AfterSentState};
                 {error, Reason} ->
-                    lager:error("Error sending message. Reason: ~p", [Reason]),
+                    lager:warning("Error sending message. Reason: ~p", [Reason]),
                     {ok, DisconnectedState} = disconnect(ConnectedState),
                     send(Retries - 1, DisconnectedState)
             end;
         {error, Reason} ->
-            lager:error("Unable to connect... Reason: ~p", [Reason]),
+            lager:warning("Unable to connect... Reason: ~p", [Reason]),
             {ok, DisconnectedState} = disconnect(State),
             send(Retries - 1, DisconnectedState)
     end.
 
 
-%% @doc
-%% Sends buffered messages to Graphite
+%%  @private
+%%  Sends buffered messages to Graphite
 %%
-send(State) ->
-    #state{
-        socket = Socket,
-        messages = Messages
-    } = State,
-    lager:info("Messages: ~p", [Messages]),
+send(State = #state{socket = Socket, messages = Messages}) ->
     case Messages of
         [] ->
             {ok, State};
@@ -257,29 +248,29 @@ send(State) ->
     end.
 
 
-%%
-%% Passes current unix timestamp to create_message/4.
+%%  @private
+%%  Passes current unix timestamp to create_message/4.
 %%
 create_message(Probe, DataPoint, Value) ->
     create_message(Probe, DataPoint, Value, erlang:system_time(seconds)).
 
 
-%%
-%% Creates a Graphite compliant Pickle (protocol 2) message out of Exometer report.
-%% Path for Graphite metric is joined Exometer Probe and DataPoint.
+%%  @private
+%%  Creates a Graphite compliant Pickle (protocol 2) message out of Exometer report.
+%%  Path for Graphite metric is joined Exometer Probe and DataPoint.
 %%
 create_message(Probe, DataPoint, Value, Timestamp) ->
     ProbeBinary = erlang:list_to_binary(format_metric_path(Probe, DataPoint)),
     Payload = pickle:term_to_pickle([{ProbeBinary, {Timestamp, Value}}]),
-    N = byte_size(Payload),
-    Message = <<N:32/unsigned-big, Payload/binary>>,
+    PayloadSize = byte_size(Payload),
+    Message = <<PayloadSize:32/unsigned-big, Payload/binary>>,
     Message.
 
 
+%%  @private
+%%  Forms Graphite compatible metric path out of Exometer's Probe and DataPoint.
 %%
-%% Forms Graphite compatible metric path out of Exometer's Probe and DataPoint.
-%%
-format_metric_path(Probe, DataPoint) ->   % test
+format_metric_path(Probe, DataPoint) ->
     string:join(lists:map(fun erlang:atom_to_list/1, Probe ++ [DataPoint]), ".").
 
 
@@ -291,6 +282,9 @@ format_metric_path(Probe, DataPoint) ->   % test
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
+%%
+%%  Check, if pickle message is created properly.
+%%
 create_message_test_() ->
     [
         ?_assertEqual(<<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",
@@ -302,13 +296,18 @@ create_message_test_() ->
     ].
 
 
+%%
+%%  Check, misc graphite path combinations.
+%%
 format_metric_path_test_() ->
     [
-        ?_assertEqual("min", format_metric_path([], min)),
-        ?_assertEqual("dir1.dir2.max", format_metric_path([dir1, dir2], max)),
-        ?_assertError(badarg, format_metric_path(["dir1", "dir2"], max)),
-        ?_assertEqual("dir.1.max", format_metric_path([dir, 1], max)),
-        ?_assertEqual("a.first.value", format_metric_path([a, first], value))
-        ].
+        ?_assertEqual("min",            format_metric_path([], min)),
+        ?_assertEqual("dir1.dir2.max",  format_metric_path([dir1, dir2], max)),
+        ?_assertError(badarg,           format_metric_path(["dir1", "dir2"], max)),
+        ?_assertEqual("dir.1.max",      format_metric_path([dir, 1], max)),
+        ?_assertEqual("a.first.value",  format_metric_path([a, first], value))
+    ].
+
+
 
 -endif.
