@@ -19,7 +19,7 @@
 %%% Modify sys.config to change integration settings.
 %%% 
 -module(exometer_graphite_reporter).
--behaviour(exometer_reporter).
+-behaviour(exometer_report).
 -compile([{parse_transform, lager_transform}]).
 -export([
     exometer_init/1,
