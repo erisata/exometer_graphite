@@ -16,7 +16,7 @@
 
 %%% @doc
 %%% Module for Exometer and Graphite integration.
-%%% Set Graphite server settings in sys.config (host
+%%% Modify sys.config to change integration settings.
 %%% 
 -module(exometer_graphite_reporter).
 -behaviour(exometer_reporter).
@@ -69,20 +69,18 @@ exometer_init(_Opts) ->
     Port = application:get_env(?APP, port, ?DEFAULT_PORT),
     ConnectionTimeout = application:get_env(?APP, connection_timeout, ?DEFAULT_CONNECTION_TIMEOUT),
     GraphiteDelay = application:get_env(?APP, graphite_delay, ?DEFAULT_GRAPHITE_DELAY),
-
     State = #state{
                 host = Host,
                 port = Port,
                 connection_timeout = ConnectionTimeout,
                 graphite_delay = GraphiteDelay,
                 messages = []},
-
     erlang:send_after(GraphiteDelay, self(), send),
     {ok, State}.
 
     
 %% @doc
-%% Receives probe and datapoint from Exometer
+%% Receives probe, datapoint and its value from Exometer.
 %%
 exometer_report(Probe, DataPoint, _Extra, Value, State) ->
     #state{
@@ -90,30 +88,44 @@ exometer_report(Probe, DataPoint, _Extra, Value, State) ->
     } = State,
     lager:info("exometer_report CALLED. Probe: ~p, DataPoint ~p, Value ~p", 
         [Probe, DataPoint, Value]),
-
     Message = create_message(Probe, DataPoint, Value),
-
     NewMessages = [Message | Messages],
     NewState = State#state{messages = NewMessages},
     {ok, NewState}.
 
-%%...
+
+%% @doc
+%% Unused
+%%
 exometer_subscribe(_Metric, _DataPoint, _Extra, _Interval, State) ->
     {ok, State}.
 
+
+%% @doc
+%% Unused
+%%
 exometer_unsubscribe(_Metric, _DataPoint, _Extra, State) ->
     {ok, State}.
 
+
+%% @doc
+%% Unused
+%%
 exometer_call(Unknown, From, State) ->
     lager:info("Unknown call ~p from ~p", [Unknown, From]),
     {ok, State}.
 
+
+%% @doc
+%% Unused
+%%
 exometer_cast(Unknown, State) ->
     lager:info("Unknown cast: ~p", [Unknown]),
     {ok, State}.
 
+
 %% @doc
-%% Sends collected messages to graphite and continues message sending loop
+%% Sends collected messages to graphite and continues message sending loop.
 %%
 exometer_info(send, State) ->
     #state{
@@ -121,18 +133,33 @@ exometer_info(send, State) ->
     } = State,
     erlang:send_after(GraphiteDelay, self(), send),
     {ok, _NewState} = send(2, State);
-    
+
+
+%% @doc
+%% Unused
+%%
 exometer_info(Unknown, State) ->
     lager:info("Unknown info: ~p", [Unknown]),
     {ok, State}.
 
 
+%% @doc
+%% Unused
+%%
 exometer_newentry(_Entry, State) ->
     {ok, State}.
 
+
+%% @doc
+%% Unused
+%%
 exometer_setopts(_Metric, _Options, _Status, State) ->
     {ok, State}.
 
+
+%% @doc
+%% Unused
+%%
 exometer_terminate(_, _) ->
     ignore.    
 
@@ -151,8 +178,6 @@ ensure_connection(State = #state{socket = undefined}) ->
         port     = Port,
         connection_timeout = ConnectionTimeout
     } = State,
-
-    lager:info("Establishing new connection"),
     case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectionTimeout) of
         {ok, NewSocket} ->
             NewState = State#state{socket = NewSocket},
@@ -167,22 +192,22 @@ ensure_connection(State) ->
 
 
 %% @doc
-%% Removes socket from state.
+%% Removes socket from state and makes sure it is closed.
 %%
 disconnect(State = #state{socket = undefined}) ->
     {ok, State};
+
 disconnect(State) ->
     #state{
         socket = Socket
     } = State,
-
     try gen_tcp:close(Socket)
     catch
         _:_ -> ok
     end,
-
     NewState = State#state{socket = undefined},
     {ok, NewState}.
+
 
 %% @doc
 %% Manages connection to a socket and sending message to Graphite.
@@ -208,15 +233,15 @@ send(Retries, State) ->
             send(Retries - 1, DisconnectedState)
     end.
 
+
 %% @doc
-%%
+%% Sends buffered messages to Graphite
 %%
 send(State) ->
     #state{
         socket = Socket,
         messages = Messages
     } = State,
-
     lager:info("Messages: ~p", [Messages]),
     case Messages of
         [] ->
@@ -233,7 +258,7 @@ send(State) ->
 
 
 %%
-%% Passes current unix time to create_message/4.
+%% Passes current unix timestamp to create_message/4.
 %%
 create_message(Probe, DataPoint, Value) ->
     create_message(Probe, DataPoint, Value, erlang:system_time(seconds)).
@@ -245,12 +270,10 @@ create_message(Probe, DataPoint, Value) ->
 %%
 create_message(Probe, DataPoint, Value, Timestamp) ->
     ProbeBinary = erlang:list_to_binary(format_metric_path(Probe, DataPoint)),
-
     Payload = pickle:term_to_pickle([{ProbeBinary, {Timestamp, Value}}]),
     N = byte_size(Payload),
     Message = <<N:32/unsigned-big, Payload/binary>>,
     Message.
-    
 
 
 %%
@@ -258,6 +281,7 @@ create_message(Probe, DataPoint, Value, Timestamp) ->
 %%
 format_metric_path(Probe, DataPoint) ->   % test
     string:join(lists:map(fun erlang:atom_to_list/1, Probe ++ [DataPoint]), ".").
+
 
 
 %%% ============================================================================
@@ -277,11 +301,14 @@ create_message_test_() ->
                 0, 4))
     ].
 
+
 format_metric_path_test_() ->
     [
         ?_assertEqual("min", format_metric_path([], min)),
         ?_assertEqual("dir1.dir2.max", format_metric_path([dir1, dir2], max)),
-        ?_assertError(badarg, format_metric_path(["dir1", "dir2"], max))
-    ].
+        ?_assertError(badarg, format_metric_path(["dir1", "dir2"], max)),
+        ?_assertEqual("dir.1.max", format_metric_path([dir, 1], max)),
+        ?_assertEqual("a.first.value", format_metric_path([a, first], value))
+        ].
 
 -endif.

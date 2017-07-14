@@ -17,22 +17,29 @@
 
 <h2><a name="description">Description</a></h2>
    Module for Exometer and Graphite integration.
-   Set Graphite server settings in sys.config (host
+   Modify sys.config to change integration settings.
   
 <h2><a name="index">Function Index</a></h2>
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#exometer_call-3">exometer_call/3</a></td><td></td></tr>
-<tr><td valign="top"><a href="#exometer_cast-2">exometer_cast/2</a></td><td></td></tr>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#exometer_call-3">exometer_call/3</a></td><td>
+  Unused.</td></tr>
+<tr><td valign="top"><a href="#exometer_cast-2">exometer_cast/2</a></td><td>
+  Unused.</td></tr>
 <tr><td valign="top"><a href="#exometer_info-2">exometer_info/2</a></td><td>
   Sends collected messages to graphite and continues message sending loop.</td></tr>
 <tr><td valign="top"><a href="#exometer_init-1">exometer_init/1</a></td><td>
   Initializes the reporter and starts message sending loop.</td></tr>
-<tr><td valign="top"><a href="#exometer_newentry-2">exometer_newentry/2</a></td><td></td></tr>
+<tr><td valign="top"><a href="#exometer_newentry-2">exometer_newentry/2</a></td><td>
+  Unused.</td></tr>
 <tr><td valign="top"><a href="#exometer_report-5">exometer_report/5</a></td><td>
-  Receives probe and datapoint from Exometer.</td></tr>
-<tr><td valign="top"><a href="#exometer_setopts-4">exometer_setopts/4</a></td><td></td></tr>
-<tr><td valign="top"><a href="#exometer_subscribe-5">exometer_subscribe/5</a></td><td></td></tr>
-<tr><td valign="top"><a href="#exometer_terminate-2">exometer_terminate/2</a></td><td></td></tr>
-<tr><td valign="top"><a href="#exometer_unsubscribe-4">exometer_unsubscribe/4</a></td><td></td></tr>
+  Receives probe, datapoint and its value from Exometer.</td></tr>
+<tr><td valign="top"><a href="#exometer_setopts-4">exometer_setopts/4</a></td><td>
+  Unused.</td></tr>
+<tr><td valign="top"><a href="#exometer_subscribe-5">exometer_subscribe/5</a></td><td>
+  Unused.</td></tr>
+<tr><td valign="top"><a href="#exometer_terminate-2">exometer_terminate/2</a></td><td>
+  Unused.</td></tr>
+<tr><td valign="top"><a href="#exometer_unsubscribe-4">exometer_unsubscribe/4</a></td><td>
+  Unused.</td></tr>
 </table>
 
 <h2><a name="functions">Function Details</a></h2>
@@ -40,18 +47,22 @@
 <h3 class="function"><a name="exometer_call-3">exometer_call/3</a></h3>
 <div class="spec">
 <p><tt>exometer_call(Unknown, From, State) -&gt; any()</tt></p>
-</div>
+</div><p>
+  Unused
+ </p>
 
 <h3 class="function"><a name="exometer_cast-2">exometer_cast/2</a></h3>
 <div class="spec">
 <p><tt>exometer_cast(Unknown, State) -&gt; any()</tt></p>
-</div>
+</div><p>
+  Unused
+ </p>
 
 <h3 class="function"><a name="exometer_info-2">exometer_info/2</a></h3>
 <div class="spec">
 <p><tt>exometer_info(Unknown, State) -&gt; any()</tt></p>
 </div><p>
-  Sends collected messages to graphite and continues message sending loop
+  Sends collected messages to graphite and continues message sending loop.
  </p>
 
 <h3 class="function"><a name="exometer_init-1">exometer_init/1</a></h3>
@@ -64,37 +75,47 @@
 <h3 class="function"><a name="exometer_newentry-2">exometer_newentry/2</a></h3>
 <div class="spec">
 <p><tt>exometer_newentry(Entry, State) -&gt; any()</tt></p>
-</div>
+</div><p>
+  Unused
+ </p>
 
 <h3 class="function"><a name="exometer_report-5">exometer_report/5</a></h3>
 <div class="spec">
 <p><tt>exometer_report(Probe, DataPoint, Extra, Value, State) -&gt; any()</tt></p>
 </div><p>
-  Receives probe and datapoint from Exometer
+  Receives probe, datapoint and its value from Exometer.
  </p>
 
 <h3 class="function"><a name="exometer_setopts-4">exometer_setopts/4</a></h3>
 <div class="spec">
 <p><tt>exometer_setopts(Metric, Options, Status, State) -&gt; any()</tt></p>
-</div>
+</div><p>
+  Unused
+ </p>
 
 <h3 class="function"><a name="exometer_subscribe-5">exometer_subscribe/5</a></h3>
 <div class="spec">
 <p><tt>exometer_subscribe(Metric, DataPoint, Extra, Interval, State) -&gt; any()</tt></p>
-</div>
+</div><p>
+  Unused
+ </p>
 
 <h3 class="function"><a name="exometer_terminate-2">exometer_terminate/2</a></h3>
 <div class="spec">
 <p><tt>exometer_terminate(X1, X2) -&gt; any()</tt></p>
-</div>
+</div><p>
+  Unused
+ </p>
 
 <h3 class="function"><a name="exometer_unsubscribe-4">exometer_unsubscribe/4</a></h3>
 <div class="spec">
 <p><tt>exometer_unsubscribe(Metric, DataPoint, Extra, State) -&gt; any()</tt></p>
-</div>
+</div><p>
+  Unused
+ </p>
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Jul 12 2017, 16:34:50.</i></p>
+<p><i>Generated by EDoc, Jul 13 2017, 17:26:42.</i></p>
 </body>
 </html>
