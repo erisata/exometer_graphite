@@ -15,8 +15,9 @@
 %\--------------------------------------------------------------------
 
 {application, exometer_graphite, [
-    {description, "Exometer Graphite"},
+    {description, "Exometer Graphite: allows Exometer and Graphite integration."},
     {vsn, git},
+    {mod, {exometer_graphite_app, []}},
     {applications, [
         kernel,
         stdlib,

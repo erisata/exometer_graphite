@@ -17,7 +17,8 @@
 %%% @doc
 %%% Module for Exometer and Graphite integration.
 %%% Modify `sys.config' to change integration settings.
-%%% 
+%%% To use this
+%%%
 -module(exometer_graphite_reporter).
 -behaviour(exometer_report).
 -compile([{parse_transform, lager_transform}]).
@@ -234,6 +235,7 @@ send(Retries, State) ->
 %%  Sends buffered messages to Graphite
 %%
 send(State = #state{socket = Socket, messages = Messages}) ->
+    lager:info("Messages: ~p", [Messages]), % TEMP
     case Messages of
         [] ->
             {ok, State};
@@ -271,9 +273,15 @@ create_message(Probe, DataPoint, Value, Timestamp) ->
 %%  Forms Graphite compatible metric path out of Exometer's Probe and DataPoint.
 %%
 format_metric_path(Probe, DataPoint) ->
-    string:join(lists:map(fun erlang:atom_to_list/1, Probe ++ [DataPoint]), ".").
+    string:join(lists:map(fun metric_elem_to_list/1, Probe ++ [DataPoint]), ".").
 
 
+%%  @private
+%%  Converts metric path elements to list (string)
+%%
+metric_elem_to_list(V) when is_atom(V) -> erlang:atom_to_list(V);
+metric_elem_to_list(V) when is_integer(V) -> erlang:integer_to_list(V);
+metric_elem_to_list(V) when is_list(V) -> V.
 
 %%% ============================================================================
 %%% Test cases for internal functions.
@@ -303,7 +311,7 @@ format_metric_path_test_() ->
     [
         ?_assertEqual("min",            format_metric_path([], min)),
         ?_assertEqual("dir1.dir2.max",  format_metric_path([dir1, dir2], max)),
-        ?_assertError(badarg,           format_metric_path(["dir1", "dir2"], max)),
+        ?_assertEqual("dir1.dir2.max",  format_metric_path(["dir1", "dir2"], max)),
         ?_assertEqual("dir.1.max",      format_metric_path([dir, 1], max)),
         ?_assertEqual("a.first.value",  format_metric_path([a, first], value))
     ].

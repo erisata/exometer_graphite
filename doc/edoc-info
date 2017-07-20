@@ -1,3 +1,4 @@
 %% encoding: UTF-8
 {application,exometer_graphite}.
-{modules,[exometer_graphite_reporter]}.
+{modules,[exometer_graphite_app,exometer_graphite_reporter,
+          exometer_graphite_subscribers,exometer_graphite_subscribers_sup]}.
