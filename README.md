@@ -48,9 +48,11 @@ Also, we add this application to our application's `.app.src'
 In our sys.config we add configuration for this application (exometer_graphite).
 Here we define timings and subscriptions to metrics.
 
-Note that if a subscriptions in sys.config are overriden. Which means that, a
+Note that subscriptions in sys.config are **not** overriden. When subscribing
+to the same metric and datapoint, only the first subscription from the
+beginning of the config file will be subscribed. Which means that, a
 subscription for metric name [a, b, c], datapoint min and interval 10000 will
-be overriden by metric name [a, b, c], datapoint min and interval 3000, if it is
+**not** be overriden by metric name [a, b, c], datapoint min and interval 3000, if it is
 lower in the file.
 
 Subscription format is list of subscriptions. Each subscription has a list of
@@ -83,7 +85,7 @@ to the metrics that will exist in future.
 1. Possible to configure resubscription interval.
 1. Metrics are aggregated and sent to Graphite.
 1. Interval of metric sending to Graphite is configurable.
-1.
+
 
 ## Non-functional requirements ##
 1.
