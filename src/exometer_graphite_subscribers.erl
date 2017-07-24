@@ -72,21 +72,11 @@ force_resubscribe() ->
 %% Sets up subscription configuration loop.
 %%
 init(_) ->
-    lager:info("INIT STARTED"),
     SubscriptionDelay = application:get_env(?APP, subscription_delay, ?DEFAULT_SUBSCRIPTION_DELAY),
-%%    lager:info("SubscriptionSpecs: ~p", [Subscriptions]),
-    exometer:new([eproc_core, store, get_message], spiral),
-%%    exometer:new([eproc_core, store, attachment_save], spiral),
-%%    exometer:new([eproc_core, something, attachment_load], spiral),
-%%    exometer:new([eproc_core, something, attachment_save], spiral),
-
-
     State = #state{
         subscription_delay = SubscriptionDelay
     },
-
     self() ! update,
-    lager:info("INIT FINISHED"),
     {ok, State}.
 
 
@@ -107,17 +97,11 @@ handle_cast(Unknown, State) ->
 
 
 %% @doc
-%% Updates subscribtions to metrics and continues message sending loop.
+%% Updates subscriptions to metrics and continues message sending loop.
 %%
-handle_info(update, State) ->
-    #state{
-        subscription_delay = SubscriptionDelay
-    } = State,
+handle_info(update, State = #state{subscription_delay = SubscriptionDelay}) ->
     erlang:send_after(SubscriptionDelay, self(), update),
     refresh_subscriptions(),
-
-%%    lager:info("Subscriptions of my reporter: ~p", [exometer_report:list_subscriptions(?REPORTER)]),
-
     {noreply, State};
 
 handle_info(Unknown, State) ->
@@ -144,50 +128,89 @@ terminate(_Reason, _State) ->
 %%% Internal functions.
 %%% ============================================================================
 
-%% @doc
+%% @private
 %% Refreshes subscriptions and continues subscription loop.
 %%
 refresh_subscriptions() ->
-    Subscriptions = case application:get_env(?APP, subscriptions, []) of
-        {ok, SubscriptionsFromEnv} ->
-            SubscriptionsFromEnv;
+    Subs = case application:get_env(?APP, subscriptions, []) of
+        SubsFromEnv ->
+            SubsFromEnv;
         [] ->
             []
     end,
-
-%%    {ok, Subscriptions} = application:get_env(?APP, subscriptions, []),
-
-    OldSubscriptions = exometer_report:list_subscriptions(?REPORTER),
-
-    [exometer_report:unsubscribe_all(exometer_graphite_reporter, MetricName)
-        || {MetricName, _DataPoint, _Interval, _Extra} <- OldSubscriptions],
-
-    [resubscribe(Subscription) || Subscription <- Subscriptions],
-    lager:info("RESUBSCRIBED!!!"),
+    [resubscribe(Sub) || Sub <- Subs],
+    lager:debug("RESUBSCRIBED"),
     ok.
 
 
-%% @doc
-%% Resubscribes to single subscription.
+%%  @private
+%%  Resubscribes to a given subscription.
 %%
-resubscribe(Subscription) ->
-    {select, {MatchPattern, DataPoint, Interval}} = Subscription,
-%%    lager:info("MatchPattern: ~p", [MatchPattern]),
+resubscribe(Sub) ->
+    {NamePatterns, _DatapointSetting, _Interval} = Sub,
+    %
+    % Select metrics from exometer that fits our metric name pattern.
+    InterestingMetrics = exometer:select(NamePatterns),
+    [subscribe_to_interesting_metric(Sub, InterestingMetric)
+        || InterestingMetric <- InterestingMetrics].
 
-    Metrics = exometer:select(MatchPattern), % get already defined metrics in exometer
 
-    % issitraukiu, kokias metrikas jau turiu uzsisubscribines
-    % antra karta ant tu paciu metriku nelipu
-    % TODO: THIS IS FAULTY
-    [exometer_report:subscribe(?REPORTER, Name, DataPoint, Interval, [], false)
-        || {Name, _Type, _Status} <- Metrics],
-    exometer_report:restart_intervals(?REPORTER),
-    ok.
+%%  @private
+%%  Subscribes to an interesting metric.
+%%
+subscribe_to_interesting_metric(Sub, InterestingMetric) ->
+    {_NamePatterns, DatapointSetting, Interval} = Sub,
+    {MetricName, _Type, _State} = InterestingMetric,
+    SubDatapoints = case DatapointSetting of
+        {all} ->
+            exometer:info(MetricName, datapoints);
+        {specific, Datapoints} ->
+            intersection(Datapoints, exometer:info(MetricName, datapoints))
+    end,
+    ThisOneSubscription = {MetricName, SubDatapoints, Interval},
+    OldSubs = exometer_report:list_subscriptions(?REPORTER),
+    % TODO: scenario where existing subscription with many datapoint should be
+    % overriden by subscription with less datapoints.
+    case intersection([ThisOneSubscription], OldSubs) of
+        [] ->
+            lager:debug("New subscribtion"),
+            exometer_report:subscribe(exometer_graphite_reporter, MetricName, SubDatapoints, Interval),
+            resubscribed;
+        _ ->
+            lager:debug("Not resubscribing"),
+            not_resubscribed
+    end.
 
-%% pseudo resubscribe
-%% Metrics = exometer:select(MatchPattern),
-%% jeigu toks pat {select, {Match...}} ir vienas is list_subscriptions
+
+%%  @private
+%%  Finds intersecting members of two lists.
+%%
+intersection(List1, List2) ->
+    [I || I <- List1, lists:member(I, List2)].
+
+
 
 %%% ============================================================================
 %%% Test cases for internal functions.
 %%% ============================================================================
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+%%
+%%  Check, if intersection is found well.
+%%
+find_intersection_test_() ->
+
+    [
+        ?_assertEqual([b,c], intersection([a,b,c], [b,c,d])),
+        ?_assertEqual("bc", intersection("abc", "bcd")),
+        ?_assertEqual([min, max],
+            intersection([min, count, low, max], [n,mean,min,max,median]))
+    ].
+
+%%  TODO: Multiline eunit test for 'subscribe_to_interesting_metric'
+
+
+
+-endif.

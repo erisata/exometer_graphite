@@ -235,7 +235,7 @@ send(Retries, State) ->
 %%  Sends buffered messages to Graphite
 %%
 send(State = #state{socket = Socket, messages = Messages}) ->
-    lager:info("Messages: ~p", [Messages]), % TEMP
+%%    lager:info("Messages: ~p", [Messages]), % TEMP
     case Messages of
         [] ->
             {ok, State};

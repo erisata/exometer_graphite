@@ -35,6 +35,7 @@ start_link() ->
     lager:info("exometer_graphite_subscribers_sup has started!"),
     supervisor:start_link({local, subscribers}, ?MODULE, {}).
 
+
 %%  @doc
 %%  Stop this supervisor.
 %%
@@ -44,6 +45,8 @@ stop() ->
             exit(P, kill);
         _ -> ok
     end.
+
+
 
 %%% ============================================================================
 %%% Callbacks for supervisor.
