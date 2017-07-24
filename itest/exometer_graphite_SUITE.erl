@@ -41,7 +41,7 @@
 %%  CT API.
 %%
 all() -> [
-%%    test_message_sending,
+    test_message_sending,
     test_static_configuration
 ].
 
@@ -67,10 +67,15 @@ init_per_testcase(test_static_configuration, Config) ->
 %%  Test case test_message_sending ending.
 %%
 end_per_testcase(test_message_sending, _Config) ->
+    [exometer_report:unsubscribe_all(?REPORTER, Metric)
+        || {Metric, _, _, _} <- exometer_report:list_subscriptions(?REPORTER)],
     ok;
 
 end_per_testcase(test_static_configuration, _Config) ->
+    [exometer_report:unsubscribe_all(?REPORTER, Metric)
+        || {Metric, _, _, _} <- exometer_report:list_subscriptions(?REPORTER)],
     ok.
+
 
 
 %%% ============================================================================
@@ -83,11 +88,11 @@ end_per_testcase(test_static_configuration, _Config) ->
 %%  successful. Dynamic metric and subscription configuration.
 %%
 test_message_sending(_Config) ->
-    application:ensure_all_started(exometer_graphite),
+    application:ensure_all_started(?APP),
     Port = application:get_env(?APP, port, ?DEFAULT_TCP_SERVER_MOCK_PORT),
     tcp_server_mock:start(Port, self()),
     exometer:new([testZ, cpuUsage], gauge),
-    exometer_report:subscribe(exometer_graphite_reporter, [testZ, cpuUsage],
+    exometer_report:subscribe(?REPORTER, [testZ, cpuUsage],
         value, 1000, []),
     Message = receive
         {received, Data} ->
@@ -120,16 +125,16 @@ test_message_sending(_Config) ->
 %%  Check, if static subscriptions are passed to exometer.
 %%
 test_static_configuration(_Config) ->
-    application:load(exometer_graphite),
-    application:set_env(exometer_graphite, subscriptions, [
+    application:load(?APP),
+    application:set_env(?APP, subscriptions, [
         {[{ {[axb_core, lager, '_'], '_', '_'}, [], ['$_']},
             { {[eproc_core, lager, '_'], '_', '_'}, [], ['$_']}
         ], {specific, [mean, max, min]}, 20000},
         {[{ {[eproc_core, store, '_'], '_', '_'}, [], ['$_']}
         ], {all}, 10000}
     ]),
-    application:ensure_all_started(exometer_graphite),
-    timer:sleep(2000),
+    application:ensure_all_started(?APP),
+    timer:sleep(500),
     %
     exometer:new([axb_core, lager, error], histogram),
     exometer:new([eproc_core, lager, warning], histogram),
@@ -164,13 +169,13 @@ test_static_configuration(_Config) ->
         {[eproc_core,store,attachment_delete],[count,one],10000,[]},
         {[eproc_core,lager,warning],[mean,max,min],20000,[]},
         {[axb_core,lager,error],[mean,max,min],20000,[]}],
-    NewerActualSubs = exometer_report:list_subscriptions(exometer_graphite_reporter),
+    NewerActualSubs = exometer_report:list_subscriptions(?REPORTER),
     true = NewerActualSubs =:= NewerExpectedSubs,
     %
-    lager:debug("Subs now: ~p", [exometer_report:list_subscriptions(exometer_graphite_reporter)]).
+    lager:debug("Subs now: ~p", [exometer_report:list_subscriptions(?REPORTER)]).
 
 
 %%  @doc
-%%  Check, if static subscriptions are passed to exometer.
+%%  Check, if messages are not being duplicated after resubscription.
 %%
 %%test_resubscription_duplicates(_Config) ->

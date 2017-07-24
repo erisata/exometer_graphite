@@ -35,7 +35,7 @@ test: compile
 
 itest: compile
 	mkdir -p logs
-	env ERL_LIBS=deps ERL_AFLAGS='-config test/itest-sys' $(REBAR) ct skip_deps=true $(CT_ARGS) || grep Testing logs/raw.log
+	env ERL_LIBS=deps ERL_AFLAGS='-config test/sys' $(REBAR) ct skip_deps=true $(CT_ARGS) || grep Testing logs/raw.log
 
 doc:
 	$(REBAR) doc

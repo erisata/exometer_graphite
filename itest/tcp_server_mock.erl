@@ -58,7 +58,7 @@ server(ListenSocket, From) ->
         {ok, AcceptedSocket} ->
             loop(AcceptedSocket, From);
         {error, timeout} ->
-            lager:error("Timeout: no connection in 5 seconds."),
+            lager:warning("Timeout: no connection in 5 seconds."),
             ok;
         _Other ->
             ok
