@@ -146,40 +146,74 @@ refresh_subscriptions() ->
 %%  @private
 %%  Resubscribes to a given subscription.
 %%
-resubscribe(Sub) ->
-    {NamePatterns, _DatapointSetting, _Interval} = Sub,
+resubscribe({NamePatterns, DatapointSetting, Interval}) ->
     %
-    % Select metrics from exometer that fits our metric name pattern.
-    InterestingMetrics = exometer:select(NamePatterns),
-    [subscribe_to_interesting_metric(Sub, InterestingMetric)
-        || InterestingMetric <- InterestingMetrics].
+    % Select those metrics from exometer that fits our metric name pattern.
+    Metrics = exometer:select(NamePatterns),
+    [subscribe_to_metric(Metric, DatapointSetting, Interval) || Metric <- Metrics].
 
 
 %%  @private
 %%  Subscribes to an interesting metric.
 %%
-subscribe_to_interesting_metric(Sub, InterestingMetric) ->
-    {_NamePatterns, DatapointSetting, Interval} = Sub,
-    {MetricName, _Type, _State} = InterestingMetric,
+subscribe_to_metric(Metric, DatapointSetting, Interval) ->
+    {MetricName, _Type, _State} = Metric,
     SubDatapoints = case DatapointSetting of
         {all} ->
             exometer:info(MetricName, datapoints);
         {specific, Datapoints} ->
             intersection(Datapoints, exometer:info(MetricName, datapoints))
     end,
-    ThisOneSubscription = {MetricName, SubDatapoints, Interval},
-    OldSubs = exometer_report:list_subscriptions(?REPORTER),
-    % TODO: scenario where existing subscription with many datapoint should be
-    % overriden by subscription with less datapoints.
-    case intersection([ThisOneSubscription], OldSubs) of
-        [] ->
-            lager:debug("New subscribtion"),
-            exometer_report:subscribe(exometer_graphite_reporter, MetricName, SubDatapoints, Interval),
-            resubscribed;
-        _ ->
-            lager:debug("Not resubscribing"),
-            not_resubscribed
+    NewSubs = [{MetricName, SubDatapoint} || SubDatapoint <- SubDatapoints],
+
+    OldSubs = lists:flatten([{{OldMetric, Datapoint}, Interval}
+        || {OldMetric, Datapoint, Interval, _Extra} <- exometer_report:list_subscriptions(?REPORTER)]),
+    [subscribe(NewSub, OldSubs, Interval) || NewSub <- NewSubs].
+
+
+%%  @private
+%%  Subscribes
+%%
+subscribe(_NewSub = {MetricName, SubDatapoint}, OldSubs, Interval) ->
+    case lists:keysearch({MetricName, SubDatapoint}, 1, OldSubs) of
+        {value, {_Key, OldInterval}} ->
+            case OldInterval of
+                Interval ->
+                    ok;
+                _ ->
+                    exometer_report:unsubscribe(?REPORTER, MetricName, SubDatapoint),
+                    exometer_report:subscribe(?REPORTER, MetricName, SubDatapoint, Interval)
+            end;
+        false ->
+            exometer_report:subscribe(?REPORTER, MetricName, SubDatapoint, Interval)
     end.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%    ThisOneSubscription = {MetricName, SubDatapoints, Interval},
+%%    OldSubs = exometer_report:list_subscriptions(?REPORTER),
+%%    % TODO: scenario where existing subscription with many datapoint should be
+%%    % overriden by subscription with less datapoints.
+%%    case intersection([ThisOneSubscription], OldSubs) of
+%%        [] ->
+%%            lager:debug("New subscribtion"),
+%%            exometer_report:subscribe(exometer_graphite_reporter, MetricName, SubDatapoints, Interval),
+%%            resubscribed;
+%%        _ ->
+%%            lager:debug("Not resubscribing"),
+%%            not_resubscribed
+%%    end.
 
 
 %%  @private

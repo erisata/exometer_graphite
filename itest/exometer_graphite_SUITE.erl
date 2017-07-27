@@ -45,21 +45,31 @@ all() -> [
     test_static_configuration
 ].
 
-%%  TODO: use init_per_suite instead of init_per_testcase or use
-%%  init_per_testcase(TestCase, Config) ->
+
 %%
 %%  Test case test_message_sending initialization.
 %%
 init_per_testcase(test_message_sending, Config) ->
     application:load(lager),
     application:set_env(lager, handlers, [{lager_console_backend, debug}]),
-    {ok, Apps} = application:ensure_all_started(exometer_graphite),
+    {ok, Apps} = application:ensure_all_started(?APP),
     [{exometer_graphite_apps, Apps} | Config];
 
 init_per_testcase(test_static_configuration, Config) ->
-    application:load(lager),
+    application:load(?APP),
+    application:set_env(?APP, subscriptions, [
+        {[{ {[axb_core, lager, '_'], '_', '_'}, [], ['$_']},
+            { {[eproc_core, lager, '_'], '_', '_'}, [], ['$_']}
+        ], {specific, [mean, max, min]}, 20000},
+        {[{ {[eproc_core, store, '_'], '_', '_'}, [], ['$_']}
+        ], {all}, 10000},
+        {[{ {[testEL, lager, '_'], '_', '_'}, [], ['$_']}
+        ], {specific, [mean, min, max]}, 4000},
+        {[{ {[exometer_lager, lager, '_'], '_', '_'}, [], ['$_']}
+        ], {all}, 5000}
+    ]),
     application:set_env(lager, handlers, [{lager_console_backend, debug}]),
-    {ok, Apps} = application:ensure_all_started(exometer_graphite),
+    {ok, Apps} = application:ensure_all_started(?APP),
     [{exometer_graphite_apps, Apps} | Config].
 
 
@@ -82,13 +92,11 @@ end_per_testcase(test_static_configuration, _Config) ->
 %%% Test cases.
 %%% ============================================================================
 
-%%  TODO: remove debug logs for full messages
 %%  @doc
 %%  Tests if message sending to mock server is
 %%  successful. Dynamic metric and subscription configuration.
 %%
 test_message_sending(_Config) ->
-    application:ensure_all_started(?APP),
     Port = application:get_env(?APP, port, ?DEFAULT_TCP_SERVER_MOCK_PORT),
     tcp_server_mock:start(Port, self()),
     exometer:new([testZ, cpuUsage], gauge),
@@ -122,37 +130,41 @@ test_message_sending(_Config) ->
 
 
 %%  @doc
-%%  Check, if static subscriptions are passed to exometer.
+%%  Check, if static subscriptions are passed to exometer report.
 %%
 test_static_configuration(_Config) ->
-    application:load(?APP),
-    application:set_env(?APP, subscriptions, [
-        {[{ {[axb_core, lager, '_'], '_', '_'}, [], ['$_']},
-            { {[eproc_core, lager, '_'], '_', '_'}, [], ['$_']}
-        ], {specific, [mean, max, min]}, 20000},
-        {[{ {[eproc_core, store, '_'], '_', '_'}, [], ['$_']}
-        ], {all}, 10000}
-    ]),
-    application:ensure_all_started(?APP),
     timer:sleep(500),
     %
-    exometer:new([axb_core, lager, error], histogram),
     exometer:new([eproc_core, lager, warning], histogram),
     exometer:new([eproc_core, store, get_message], spiral),
-    exometer:new([eproc_core, store, attachment_save], spiral),
-    exometer:new([eproc_core, store, attachment_load], spiral),
-    exometer:new([testHis, lager], histogram),
     %
-    % Forcing resubscribe, though it would be automatic resubscription interval.
+    ok = exometer:update_or_create([testEL, lager, debug            ], 1, histogram, []),
+    ok = exometer:update_or_create([exometer_lager, lager, info     ], 1, histogram, []),
+    %
+    % Forcing resubscribe, though it would be automatic resubscription by interval.
     ok = exometer_graphite_subscribers:force_resubscribe(),
     timer:sleep(200),
     ExpectedSubs = [
-        {[eproc_core,store,get_message],[count,one],10000,[]},
-        {[eproc_core,store,attachment_save],[count,one],10000,[]},
-        {[eproc_core,store,attachment_load],[count,one],10000,[]},
-        {[eproc_core,lager,warning],[mean,max,min],20000,[]},
-        {[axb_core,lager,error],[mean,max,min],20000,[]}],
+        {[testEL,lager,warning  ],[mean,min,max],4000,[]},
+        {[testEL,lager,notice   ],[mean,min,max],4000,[]},
+        {[testEL,lager,info     ],[mean,min,max],4000,[]},
+        {[testEL,lager,error    ],[mean,min,max],4000,[]},
+        {[testEL,lager,emergency],[mean,min,max],4000,[]},
+        {[testEL,lager,debug    ],[mean,min,max],4000,[]},
+        {[testEL,lager,critical ],[mean,min,max],4000,[]},
+        {[testEL,lager,alert    ],[mean,min,max],4000,[]},
+        {[exometer_lager,lager,warning  ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[exometer_lager,lager,info     ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[exometer_lager,lager,error    ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[exometer_lager,lager,debug    ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[eproc_core,store,get_message      ],[count,one],10000,[]},
+        {[eproc_core,store,attachment_save  ],[count,one],10000,[]},
+        {[eproc_core,store,attachment_load  ],[count,one],10000,[]},
+        {[eproc_core,lager,warning  ],[mean,max,min],20000,[]},
+        {[axb_core,lager,error      ],[mean,max,min],20000,[]}],
     ActualSubs = exometer_report:list_subscriptions(exometer_graphite_reporter),
+    lager:debug("ExpectedSubs: ~p", [ExpectedSubs]),
+    lager:debug("ActualSubs: ~p", [ActualSubs]),
     true = ActualSubs =:= ExpectedSubs,
     %
     % Checking a situation when a new metric fitting subscription is added.
@@ -160,22 +172,28 @@ test_static_configuration(_Config) ->
     ok = exometer_graphite_subscribers:force_resubscribe(),
     timer:sleep(200),
     %
-    % If same subscription is added to exometer twice, only one will be in
-    % exometer_report:list_subscriptions,
+    % If same subscription is added to exometer twice, only one will be shown in
+    % exometer_report:list_subscriptions, though actually there would be two.
     NewerExpectedSubs = [
-        {[eproc_core,store,get_message],[count,one],10000,[]},
-        {[eproc_core,store,attachment_save],[count,one],10000,[]},
-        {[eproc_core,store,attachment_load],[count,one],10000,[]},
-        {[eproc_core,store,attachment_delete],[count,one],10000,[]},
-        {[eproc_core,lager,warning],[mean,max,min],20000,[]},
-        {[axb_core,lager,error],[mean,max,min],20000,[]}],
+        {[testEL,lager,warning      ],[mean,min,max],4000,[]},
+        {[testEL,lager,notice       ],[mean,min,max],4000,[]},
+        {[testEL,lager,info         ],[mean,min,max],4000,[]},
+        {[testEL,lager,error        ],[mean,min,max],4000,[]},
+        {[testEL,lager,emergency    ],[mean,min,max],4000,[]},
+        {[testEL,lager,debug        ],[mean,min,max],4000,[]},
+        {[testEL,lager,critical     ],[mean,min,max],4000,[]},
+        {[testEL,lager,alert        ],[mean,min,max],4000,[]},
+        {[exometer_lager,lager,warning  ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[exometer_lager,lager,info     ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[exometer_lager,lager,error    ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[exometer_lager,lager,debug    ],[n,mean,min,max,median,50,75,90,95,99,999],5000,[]},
+        {[eproc_core,store,get_message      ],[count,one],10000,[]},
+        {[eproc_core,store,attachment_save  ],[count,one],10000,[]},
+        {[eproc_core,store,attachment_load  ],[count,one],10000,[]},
+        {[eproc_core,store,attachment_delete],[count,one],10000,[]}, %% NEWLY ADDED.
+        {[eproc_core,lager,warning  ],[mean,max,min],20000,[]},
+        {[axb_core,lager,error      ],[mean,max,min],20000,[]}],
     NewerActualSubs = exometer_report:list_subscriptions(?REPORTER),
-    true = NewerActualSubs =:= NewerExpectedSubs,
-    %
-    lager:debug("Subs now: ~p", [exometer_report:list_subscriptions(?REPORTER)]).
-
-
-%%  @doc
-%%  Check, if messages are not being duplicated after resubscription.
-%%
-%%test_resubscription_duplicates(_Config) ->
+    lager:debug("NewerActualSubs: ~p", [NewerActualSubs]),
+    lager:debug("NewerExpectedSubs: ~p", [NewerExpectedSubs]),
+    true = NewerActualSubs =:= NewerExpectedSubs.

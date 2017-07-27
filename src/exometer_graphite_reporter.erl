@@ -300,7 +300,13 @@ create_message_test_() ->
             create_message([testZ, cpuUsage], value, 0, 1499931464)),
         ?_assertEqual(<<0,0,0,37>>,
             binary:part(create_message([testZ, cpuUsage], value, 0, 1499931464),
-                0, 4))
+                0, 4)),
+        ?_assertEqual(<<0,0,0,46,128,2,93,40,85,29,"exometer_lager.lager.debug.50",
+            74,72,35,103,89,75,0,134,134,101,46>>,
+            create_message([exometer_lager,lager,debug], 50, 0, 1499931464)),
+        ?_assertEqual(<<0,0,0,28,128,2,93,40,85,11,"20.30.40.50",
+            74,72,35,103,89,75,0,134,134,101,46>>,
+            create_message([20,30,40], 50, 0, 1499931464))
     ].
 
 
@@ -313,7 +319,8 @@ format_metric_path_test_() ->
         ?_assertEqual("dir1.dir2.max",  format_metric_path([dir1, dir2], max)),
         ?_assertEqual("dir1.dir2.max",  format_metric_path(["dir1", "dir2"], max)),
         ?_assertEqual("dir.1.max",      format_metric_path([dir, 1], max)),
-        ?_assertEqual("a.first.value",  format_metric_path([a, first], value))
+        ?_assertEqual("a.first.value",  format_metric_path([a, first], value)),
+        ?_assertEqual("20.first.50.75",  format_metric_path([20, first, 50], 75))
     ].
 
 
