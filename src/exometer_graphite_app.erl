@@ -24,7 +24,6 @@
 -export([start/2, stop/0]).
 
 -define(APP, exometer_graphite).
--define(MIB, "TELIALT-OSS-LEMMA-MIB").
 
 %%% ============================================================================
 %%% Public API.

@@ -154,7 +154,7 @@ resubscribe({NamePatterns, DatapointSetting, Interval}) ->
 
 
 %%  @private
-%%  Subscribes to an interesting metric.
+%%  Subscribes to a metric.
 %%
 subscribe_to_metric(Metric, DatapointSetting, Interval) ->
     {MetricName, _Type, _State} = Metric,
@@ -164,56 +164,12 @@ subscribe_to_metric(Metric, DatapointSetting, Interval) ->
         {specific, Datapoints} ->
             intersection(Datapoints, exometer:info(MetricName, datapoints))
     end,
-    NewSubs = [{MetricName, SubDatapoint} || SubDatapoint <- SubDatapoints],
-
-    OldSubs = lists:flatten([{{OldMetric, Datapoint}, Interval}
+    RequiredSubs = [{MetricName, SubDatapoint} || SubDatapoint <- SubDatapoints],
+    OldSubs = lists:flatten([{OldMetric, Datapoint}
         || {OldMetric, Datapoint, Interval, _Extra} <- exometer_report:list_subscriptions(?REPORTER)]),
-    [subscribe(NewSub, OldSubs, Interval) || NewSub <- NewSubs].
-
-
-%%  @private
-%%  Subscribes
-%%
-subscribe(_NewSub = {MetricName, SubDatapoint}, OldSubs, Interval) ->
-    case lists:keysearch({MetricName, SubDatapoint}, 1, OldSubs) of
-        {value, {_Key, OldInterval}} ->
-            case OldInterval of
-                Interval ->
-                    ok;
-                _ ->
-                    exometer_report:unsubscribe(?REPORTER, MetricName, SubDatapoint),
-                    exometer_report:subscribe(?REPORTER, MetricName, SubDatapoint, Interval)
-            end;
-        false ->
-            exometer_report:subscribe(?REPORTER, MetricName, SubDatapoint, Interval)
-    end.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-%%    ThisOneSubscription = {MetricName, SubDatapoints, Interval},
-%%    OldSubs = exometer_report:list_subscriptions(?REPORTER),
-%%    % TODO: scenario where existing subscription with many datapoint should be
-%%    % overriden by subscription with less datapoints.
-%%    case intersection([ThisOneSubscription], OldSubs) of
-%%        [] ->
-%%            lager:debug("New subscribtion"),
-%%            exometer_report:subscribe(exometer_graphite_reporter, MetricName, SubDatapoints, Interval),
-%%            resubscribed;
-%%        _ ->
-%%            lager:debug("Not resubscribing"),
-%%            not_resubscribed
-%%    end.
+    NewSubs = lists:subtract(RequiredSubs, OldSubs),
+    [exometer_report:subscribe(?REPORTER, MetricName, SubDatapoint, Interval) || {MetricName, SubDatapoint} <- NewSubs],
+    ok.
 
 
 %%  @private
@@ -242,8 +198,6 @@ find_intersection_test_() ->
         ?_assertEqual([min, max],
             intersection([min, count, low, max], [n,mean,min,max,median]))
     ].
-
-%%  TODO: Multiline eunit test for 'subscribe_to_interesting_metric'
 
 
 
