@@ -17,7 +17,6 @@
 %%% @doc
 %%% Module for Exometer and Graphite integration.
 %%% Modify `sys.config' to change integration settings.
-%%% To use this
 %%%
 -module(exometer_graphite_reporter).
 -behaviour(exometer_report).
@@ -39,8 +38,9 @@
 -define(APP, exometer_graphite).
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, 2004).
--define(DEFAULT_CONNECTION_TIMEOUT, 5000).
--define(DEFAULT_GRAPHITE_DELAY, 10000).
+-define(DEFAULT_CONNECT_TO_CARBON_TIMEOUT, 5000).
+-define(DEFAULT_SEND_TO_GRAPHITE_DELAY, 10000).
+-define(DEFAULT_RETRY_NUMBER, 2).
 
 
 %%% ============================================================================
@@ -48,12 +48,12 @@
 %%% ============================================================================
 
 -record(state, {
-    host                :: string(),
-    port                :: integer(),
-    connection_timeout  :: integer(),
-    socket              :: term() | undefined,
-    messages            :: list(),
-    graphite_delay      :: integer()
+    host                        :: string(),
+    port                        :: integer(),
+    connect_to_carbon_timeout   :: integer(),
+    socket                      :: term() | undefined,
+    messages                    :: list(),
+    send_to_graphite_delay      :: integer()
 }).
 
 
@@ -68,16 +68,16 @@
 exometer_init(_Opts) ->
     Host = application:get_env(?APP, host, ?DEFAULT_HOST),
     Port = application:get_env(?APP, port, ?DEFAULT_PORT),
-    ConnectionTimeout = application:get_env(?APP, connection_timeout, ?DEFAULT_CONNECTION_TIMEOUT),
-    GraphiteDelay = application:get_env(?APP, graphite_delay, ?DEFAULT_GRAPHITE_DELAY),
+    ConnectToCarbonTimeout = application:get_env(?APP, connect_to_carbon_timeout, ?DEFAULT_CONNECT_TO_CARBON_TIMEOUT),
+    SendToGraphiteDelay = application:get_env(?APP, send_to_graphite_delay, ?DEFAULT_SEND_TO_GRAPHITE_DELAY),
     State = #state{
         host = Host,
         port = Port,
-        connection_timeout = ConnectionTimeout,
-        graphite_delay = GraphiteDelay,
+        connect_to_carbon_timeout = ConnectToCarbonTimeout,
+        send_to_graphite_delay = SendToGraphiteDelay,
         messages = []
     },
-    erlang:send_after(GraphiteDelay, self(), send),
+    erlang:send_after(SendToGraphiteDelay, self(), send),
     {ok, State}.
 
 
@@ -126,10 +126,10 @@ exometer_cast(Unknown, State) ->
 %%
 exometer_info(send, State) ->
     #state{
-        graphite_delay = GraphiteDelay
+        send_to_graphite_delay = SendToGraphiteDelay
     } = State,
-    erlang:send_after(GraphiteDelay, self(), send),
-    {ok, _NewState} = send(2, State);
+    erlang:send_after(SendToGraphiteDelay, self(), send),
+    {ok, _NewState} = send(?DEFAULT_RETRY_NUMBER, State);
 
 
 %% @doc
@@ -173,9 +173,9 @@ ensure_connection(State = #state{socket = undefined}) ->
     #state{
         host     = Host,
         port     = Port,
-        connection_timeout = ConnectionTimeout
+        connect_to_carbon_timeout = ConnectToCarbonTimeout
     } = State,
-    case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectionTimeout) of
+    case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectToCarbonTimeout) of
         {ok, NewSocket} ->
             NewState = State#state{socket = NewSocket},
             lager:debug("Connected, socket=~p", [NewSocket]),
@@ -282,6 +282,8 @@ format_metric_path(Probe, DataPoint) ->
 metric_elem_to_list(V) when is_atom(V) -> erlang:atom_to_list(V);
 metric_elem_to_list(V) when is_integer(V) -> erlang:integer_to_list(V);
 metric_elem_to_list(V) when is_list(V) -> V.
+
+
 
 %%% ============================================================================
 %%% Test cases for internal functions.

@@ -52,22 +52,13 @@ all() -> [
 init_per_testcase(test_message_sending, Config) ->
     application:load(lager),
     application:set_env(lager, handlers, [{lager_console_backend, debug}]),
+
+    application:set_env(?APP, subscriptions, []),
     {ok, Apps} = application:ensure_all_started(?APP),
     [{exometer_graphite_apps, Apps} | Config];
 
 init_per_testcase(test_static_configuration, Config) ->
     application:load(?APP),
-    application:set_env(?APP, subscriptions, [
-        {[{ {[axb_core, lager, '_'], '_', '_'}, [], ['$_']},
-            { {[eproc_core, lager, '_'], '_', '_'}, [], ['$_']}
-        ], {specific, [mean, max, min]}, 20000},
-        {[{ {[eproc_core, store, '_'], '_', '_'}, [], ['$_']}
-        ], {all}, 10000},
-        {[{ {[testEL, lager, '_'], '_', '_'}, [], ['$_']}
-        ], {specific, [mean, min, max]}, 4000},
-        {[{ {[exometer_lager, lager, '_'], '_', '_'}, [], ['$_']}
-        ], {all}, 5000}
-    ]),
     application:set_env(lager, handlers, [{lager_console_backend, debug}]),
     {ok, Apps} = application:ensure_all_started(?APP),
     [{exometer_graphite_apps, Apps} | Config].
@@ -164,8 +155,6 @@ test_static_configuration(_Config) ->
         {[eproc_core,lager,warning],mean,20000,[]},
         {[eproc_core,lager,warning],max,20000,[]}],
     ActualSubs = exometer_report:list_subscriptions(exometer_graphite_reporter),
-    lager:debug("ExpectedSubs: ~p", [ExpectedSubs]),
-    lager:debug("ActualSubs: ~p", [ActualSubs]),
     true = ActualSubs =:= ExpectedSubs,
     %
     % Checking a situation when a new metric fitting subscription is added.
@@ -198,6 +187,4 @@ test_static_configuration(_Config) ->
         {[eproc_core,lager,warning],mean,20000,[]},
         {[eproc_core,lager,warning],max,20000,[]}],
     NewerActualSubs = exometer_report:list_subscriptions(?REPORTER),
-    lager:debug("NewerActualSubs: ~p", [NewerActualSubs]),
-    lager:debug("NewerExpectedSubs: ~p", [NewerExpectedSubs]),
     true = NewerActualSubs =:= NewerExpectedSubs.

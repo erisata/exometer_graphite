@@ -2,15 +2,160 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>The exometer_graphite application</title>
+<title>The exometer_graphite application
+</title>
 <link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
 </head>
 <body bgcolor="white">
 <div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<h1>The exometer_graphite application</h1>
+<h1>The exometer_graphite application
+</h1>
+<p><b>Authors:</b> Kazimieras Senvaitis (<a href="mailto:kazimieras.senvaitis@erisata.lt"><tt>kazimieras.senvaitis@erisata.lt</tt></a>).</p>
 
+
+<h3><a name="Contents">Contents</a></h3><p>
+asd1234</p>
+
+<ol>
+  <li><a href="#Introduction">Introduction</a></li>
+  <li><a href="#Graphite_setup">Graphite setup</a></li>
+  <li><a href="#Usage">Usage</a></li>
+  <li><a href="#System_Requirement_Specification">System Requirement Specification</a></li>
+  <li><a href="#Developer_notes">Developer notes</a></li>
+  <li><a href="#TODO">TODO</a></li>
+</ol>
+
+
+<h3><a name="Introduction">Introduction</a></h3>
+
+
+<p>This application provides Exometer Core and Graphite integration.
+It can be added as a dependency to an application which pushes metric
+data to Exometer Core.</p>
+
+<h3><a name="Graphite_setup">Graphite setup</a></h3><p>
+To setup Graphite on Ubuntu 16.04 follow this guide until statsd configuration:
+https://linoxide.com/ubuntu-how-to/setup-graphite-statsd-ubuntu-16-04/</p>
+
+<p>To setup Graphite on OpenSUSE or SLES, get graphite-inst from Erisata. Build
+.rpm files and install them. Graphite-inst will be released in August, 2017.</p>
+
+<h3><a name="Usage">Usage</a></h3>
+
+<p>Subscriptions to metrics can be set up in sys.config file using Erlang
+specification matching.</p>
+
+<p>**Note** that subscription entries are scanned in order, and **first match wins**.
+Subscribtions are renewed every subscription_delay,
+in case application creates new metrics in runtime.</p>
+
+<h4><a name="Running_in_stand-alone_mode">Running in stand-alone mode</a></h4><p>
+To try out this application in stand-alone configure sys.config like this:</p>
+
+<pre>[
+    {exometer_graphite, [
+        {host, "localhost"},
+        {port, 2004},
+        {connection_timeout, 5000},
+        {graphite_delay, 3000},
+        {subscription_delay, 1200000},
+        {subscriptions, [
+            {[{ {[testHis, lager], '_', '_'}, [], ['$_']},
+                { {[eproc_core, store, '_'], '_', '_'}, [], ['$_']}
+            ], {all}, 10000},
+            {[{ {[testGauge],'_','_'}, [], ['$_']}],
+                {specific, [count, one]}, 8000}
+        ]}
+    ]},
+    {exometer_core, [
+        {report, [
+            {reporters, [
+                {exometer_graphite_reporter, []}
+            ]}
+        ]}
+    ]}
+].</pre>
+
+<p>And run these commands:</p>
+
+<pre>$ make deps
+$ env ERL_LIBS=deps erl -pa ebin/ -config test/sys
+&gt; application:ensure_all_started(exometer_graphite).
+&gt; exometer:start().
+&gt; exometer:new([testZ, cpuUsage], gauge).</pre><p>
+Open localhost in browser and you should see zero line graph in exometer
+when metric testZ.cpuUsage.gauge is selected.</p>
+
+<h4><a name="Running_as_a_dependency_in_another_project">Running as a dependency in another project</a></h4><p>
+Suppose we have a project that pushes metrics to exometer by using
+<code>exometer:update_or_create/4</code>.</p>
+
+<p>In order to use this project, we add it as a dependency in rebar.config.
+Also, we add this application to your application's <code>.app.src</code></p>
+
+<p>In our sys.config we add configuration for this application (exometer_graphite)
+and define timings and subscriptions to metrics.</p>
+
+<p>**Note** that subscriptions in sys.config are overriden. When subscribing
+to the same metric and datapoint. Which means that, a
+subscription for metric name \[a, b, c], datapoint min and interval 10000 will
+be overriden by metric name \[a, b, c], datapoint min and interval 3000, if it is
+lower in the file.</p>
+
+<p>Subscription format is list of subscriptions. Each subscription has a list of
+match_spec patterns for choosing metrics, tuple describing datapoints (for all
+datapoints of metrics use all) and interval.</p>
+
+Example of static subscription configuration:
+<pre>{subscriptions, [
+            {[{ {[axb, esb, ad], '_', '_'}, [], ['$_']},
+                { {[axb, esb, fm], '_', '_'}, [], ['$_']},
+                { {[axb, esb, fm, '_'], '_', '_'}, [], ['$_']}
+            ], {all}, 10000},
+            {[{ {[esb, exometer_lager, lager, '_'], '_', '_'}, [], ['$_']}
+            ], {specific, [max, mean, median, min, n]}, 5000}
+        ]}</pre>
+
+<p>Lets say our solution is running and we can't restart it and we want to change
+subscriptions dynamically. This way we can change
+sys.config file ant run exometer_graphite_subscribers:force_resubscribe/0 or
+wait for automatic resubscription. Automatic resubscription allows to subscribe
+to the metrics that will exist in future.</p>
+
+<h3><a name="System_Requirement_Specification">System Requirement Specification</a></h3>
+
+<h4><a name="Functional_requirements">Functional requirements</a></h4><p>
+1. Subscriptions are configured statically.    
+1. Subscribing to metric names is done by providing a pattern.    
+1. Possible to subscribe to specific datapoints.    
+1. Possible to subscribe to all datapoints of the metric.
+1. Possible to subscribe to the metrics that are not yet existing.
+1. Possible to configure resubscription interval.
+1. Interval of metric sending to Graphite is configurable.</p>
+
+
+
+<h4><a name="Non-functional_requirements">Non-functional requirements</a></h4>
+
+
+<p>1. Metrics are grouped and then sent to Graphite.
+1. An existing subscription is not overriden by identical subscription.</p>
+
+
+
+<h3><a name="Developer_notes">Developer notes</a></h3>
+
+
+<p>* Subscribing twice to the same metric makes two subscriptions. Though
+exometer_report:list_subscription/X shows only the newer subscription.</p>
+
+
+<h3><a name="TODO">TODO</a></h3>
+
+
+Change idea project to erlang
 <hr>
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Jul 24 2017, 07:50:58.</i></p>
+<p><i>Generated by EDoc, Aug 6 2017, 15:16:11.</i></p>
 </body>
 </html>

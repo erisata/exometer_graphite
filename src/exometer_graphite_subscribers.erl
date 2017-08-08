@@ -15,7 +15,7 @@
 %\--------------------------------------------------------------------
 
 %%% @doc
-%%% Responsible for managing subcription configuration given in
+%%% Responsible for managing subscription configuration given in
 %%% sys.config
 %%%
 -module(exometer_graphite_subscribers).
@@ -138,7 +138,8 @@ refresh_subscriptions() ->
         [] ->
             []
     end,
-    [resubscribe(Sub) || Sub <- Subs],
+    [resubscribe(Patterns, DatapointSetting, Interval)
+        || {Patterns, DatapointSetting, Interval} <- Subs],
     lager:debug("RESUBSCRIBED"),
     ok.
 
@@ -146,10 +147,13 @@ refresh_subscriptions() ->
 %%  @private
 %%  Resubscribes to a given subscription.
 %%
-resubscribe({NamePatterns, DatapointSetting, Interval}) ->
+resubscribe(Patterns, DatapointSetting, Interval) ->
     %
     % Select those metrics from exometer that fits our metric name pattern.
-    Metrics = exometer:select(NamePatterns),
+    MatchSpecPatterns = lists:map(
+        fun({NamePattern, Type}) -> {{NamePattern, Type, '_'}, [], ['$_']} end,
+        Patterns),
+    Metrics = exometer:select(MatchSpecPatterns),
     [subscribe_to_metric(Metric, DatapointSetting, Interval) || Metric <- Metrics].
 
 
@@ -158,10 +162,11 @@ resubscribe({NamePatterns, DatapointSetting, Interval}) ->
 %%
 subscribe_to_metric(Metric, DatapointSetting, Interval) ->
     {MetricName, _Type, _State} = Metric,
+    lager:debug("DatapointSetting: ~p", [DatapointSetting]),
     SubDatapoints = case DatapointSetting of
-        {all} ->
+        all ->
             exometer:info(MetricName, datapoints);
-        {specific, Datapoints} ->
+        Datapoints ->
             intersection(Datapoints, exometer:info(MetricName, datapoints))
     end,
     RequiredSubs = [{MetricName, SubDatapoint} || SubDatapoint <- SubDatapoints],
