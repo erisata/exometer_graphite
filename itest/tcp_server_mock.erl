@@ -19,10 +19,9 @@
 %%%
 -module(tcp_server_mock).
 -compile([{parse_transform, lager_transform}]).
-%%-export([
-%%    start/2
-%%]).
--compile(export_all).
+-export([
+    start/2
+]).
 
 %%% ============================================================================
 %%% Public API.
@@ -35,8 +34,7 @@ start(ListenPort, From) ->
     case gen_tcp:listen(ListenPort, [{active, true}, binary]) of
         {ok, ListenSocket} ->
             lager:debug("Listening socket opened."),
-            spawn(?MODULE, server, [ListenSocket, From]),
-%%            spawn(fun() -> server(ListenSocket, From) end),
+            spawn(fun() -> server(ListenSocket, From) end),
             {ok, Port} = inet:port(ListenSocket),
             Port;
         {error,Reason} ->
@@ -72,7 +70,6 @@ loop(AcceptedSocket, From) ->
     receive
         {tcp, AcceptedSocket, Data} ->
             % Could reply using gen_tcp:send(S,Answer),
-            lager:debug("RECEIVING DATA: ~p", [Data]),
             From ! {received, Data},
             loop(AcceptedSocket, From);
         {tcp_closed, AcceptedSocket} ->

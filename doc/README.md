@@ -175,14 +175,18 @@ to the metrics that will exist in future.
 1. Possible to configure resubscription interval.
 1. Interval of metric sending to Graphite is configurable.
 1. Possible to subscribe to all metrics of an application  with single subscription line.
+1. Metrics buffering size is configured.
 
 
 #### <a name="Non-functional_requirements">Non-functional requirements</a> ####
 
-1. Metrics are grouped and then sent to Graphite.
+1. Metrics are taken from an application which uses Exometer metrics framework.
+1. Metrics are grouped before sending to Graphite.
+1. Metrics are grouped using Pickle protocol.
+1. Metrics are stored in a buffer before sending to Graphite.
 1. An existing subscription is not overriden by identical subscription.
 1. Application does not crash if graphite server unavailable.
-1. Application does not crash if static configuration produces error.
+1. Application crashes if static configuration produces error.
 
 
 ### <a name="Developer_notes">Developer notes</a> ###
@@ -205,14 +209,181 @@ To setup Graphite on OpenSUSE or SLES, get graphite-inst from Erisata. Build
 .rpm files and install them. Graphite-inst will be released in August, 2017.
 
 
+### <a name="Setup_Graphite_0.9.16_on_SLES_11_SP4">Setup Graphite 0.9.16 on SLES 11 SP4</a> ###
+
+
+#### <a name="Files_and_Deps">Files and Deps</a> ####
+
+Main:
+(http://graphite.readthedocs.io/en/0.9.16/releases/0_9_16.html)
+* graphite-web-0.9.16.tar.gz
+* whisper-0.9.16.tar.gz
+* carbon-0.9.16.tar.gz
+
+Deps:
+* django-tagging-0.3.6.tar.gz
+(https://pypi.python.org/pypi/django-tagging/0.3.6)
+* Django-1.6.11.tar.gz
+(https://www.djangoproject.com/download/)
+* pytz-2016.1.tar.gz
+(https://pypi.python.org/pypi/pytz/2016.1#downloads)
+* python-Twisted-12.0.0-10.1.x86_64.rpm
+(https://software.opensuse.org/package/python-Twisted)
+
+Deps from YaST2:
+* apache2 2.2.34
+* apache2-mod_wsgi 4.4.13
+* ? python-setuptools
+* ? python-devel
+* ? libffi-devel
+* ? python-cairo-devel
+
+SLES 11.4 SDK (needed for python-Twisted(needs python-serial))
+(https://www.novell.com/support/kb/doc.php?id=7015337)
+(rpms also available for SLES 11.3):
+* sle-sdk-release-11.4-1.55.x86_64.rpm
+* sle-sdk-release-SDK-11.4-1.55.x86_64.rpm
+
+
+#### <a name="Steps">Steps</a> ####
+
+
+#### <a name="Build_.rpms">Build .rpms</a> ####
+
+```
+tar xzf whisper-0.9.16.tar.gz
+tar xzf graphite-web-0.9.16.tar.gz
+tar xzf carbon-0.9.16.tar.gz
+tar xzf Django-1.6.11.tar.gz
+tar xzf django-tagging-0.3.6.tar.gz
+tar xzf pytz-2016.1.tar.gz
+
+cd whisper-0.9.16/
+python setup.py bdist_rpm
+
+cd ../carbon-0.9.16/
+python setup.py bdist_rpm
+
+cd ../graphite-web-0.9.16/
+python setup.py bdist_rpm
+
+cd ../Django-1.6.11/
+python setup.py bdist_rpm
+
+cd ../django-tagging-0.3.6/
+python setup.py bdist_rpm
+
+cd ../pytz-2016.1/
+python setup.py bdist_rpm
+
+cd ..
+mkdir setup
+
+cp whisper-0.9.16/dist/whisper-0.9.16-1.noarch.rpm setup/
+cp carbon-0.9.16/dist/carbon-0.9.16-1.noarch.rpm setup/
+cp graphite-web-0.9.16/dist/graphite-web-0.9.16-1.noarch.rpm setup/
+cp Django-1.6.11/dist/Django-1.6.11-1.noarch.rpm setup/
+cp django-tagging-0.3.6/dist/django-tagging-0.3.6-1.noarch.rpm setup/
+cp pytz-2016.1/dist/pytz-2016.1-1.noarch.rpm setup/
+
+cp python-Twisted-12.0.0-10.1.x86_64.rpm setup/
+```
+
+
+#### <a name="Installing">Installing</a> ####
+
+
+```
+cd setup/
+
+zypper in whisper-0.9.16-1.noarch.rpm
+zypper in carbon-0.9.16-1.noarch.rpm
+zypper in Django-1.6.11-1.noarch.rpm
+zypper in django-tagging-0.3.6-1.noarch.rpm
+zypper in pytz-2016.1-1.noarch.rpm
+
+zypper in python-setuptools
+```
+
+
 ### <a name="Setup_Graphite_0.9.10_on_SLES_11_SP4">Setup Graphite 0.9.10 on SLES 11 SP4</a> ###
+
+
+#### <a name="Files_and_Deps">Files and Deps</a> ####
+
+**Note** that this is just a list of files and deps. They have to be
+installed in specific order which is documented in next subsection.
+
+Main:
+(https://launchpad.net/graphite/0.9/0.9.10)
+* graphite-web-0.9.10.tar.gz
+* whisper-0.9.10.tar.gz
+* carbon-0.9.10.tar.gz
+
+Deps:
+* django-tagging-0.3.1.tar.gz
+(https://software.opensuse.org/package/python-django-tagging)
+* Django-1.1.4.tar.gz
+(https://www.djangoproject.com/download/)
+* python-Twisted-12.0.0-10.1.x86_64.rpm
+(https://software.opensuse.org/package/python-Twisted)
+
+Deps from YaST2:
+* apache2 2.2.34
+* apache2-mod_wsgi 4.4.13
+
+SLES 11.4 SDK (needed for python-Twisted(needs python-serial))
+(https://www.novell.com/support/kb/doc.php?id=7015337)
+(rpms also available for SLES 11.3):
+* sle-sdk-release-11.4-1.55.x86_64.rpm
+* sle-sdk-release-SDK-11.4-1.55.x86_64.rpm
+
+
+#### <a name="Troubles">Troubles</a> ####
+
+ImportError: cannot import name ILogObserver
+To solve this, install Twisted.
 
 
 #### <a name="Steps">Steps</a> ####
 
 ```
+tar xzf carbon-0.9.10.tar.gz
+tar xzf graphite-web-0.9.10.tar.gz
+tar xzf whisper-0.9.10.tar.gz
+tar xzf Django-1.1.4.tar.gz
+tar xzf django-tagging-0.3.1.tar.gz
+
+cd graphite-web-0.9.10/
+python check-dependencies.py
+
+cd carbon-0.9.10/
+python setup.py install
+
+cd ../whisper-0.9.10/
+python setup.py install
+
+cd ../graphite-web-0.9.10/
+python setup.py install
+
+cd ../Django-1.1.4/
+python setup.py install
+
+cd ../django-tagging-0.3.1/
+python setup.py install
+
+cd ../
+zypper in python-Twisted-12.0.0-10.1.x86_64.rpm
+
+(** You need to register on suse in order to access online repos **)
+suse_register -a regcode-sles=383EA231EB5184 -a email=kazimieras.senvaitis@gmail.com -L /root/.suse_register.log
+zypper in apache2
+zypper in apache2-mod_wsgi
+
 cd /opt/graphite/webapp/graphite/
 cp local_settings.py.example local_settings.py
+vim local_settings.py
+-> Change to given config in next chapter
 
 cd /opt/graphite/conf/
 cp graphite.wsgi.example graphite.wsgi
@@ -227,26 +398,42 @@ cd /opt/graphite/webapp/graphite/
 python manage.py syncdb
 
 cp /opt/graphite/examples/example-graphite-vhost.conf /etc/apache2/vhosts.d/
+-> Change to given config in next chapter
+vim /etc/apache2/vhosts.d/example-graphite-vhost.conf
 
-chmod
+cd Setups path
+rpm -ivh sle-sdk-release-SDK-11.4-1.55.x86_64.rpm
+rpm -ivh sle-sdk-release-11.4-1.55.x86_64.rpm
+
+(maybe not needed if already registered)
+suse_register
+
+zypper in python-Twisted-12.0.0-10.1.x86_64.rpm
+
+sudo /opt/graphite/bin/carbon-cache.py start
+
+chown wwwrun:www /opt/graphite/storage/graphite.db (one of these is not needed)
+chown wwwrun /opt/graphite/storage/ (one of these is not needed)
+chown -R wwwrun /opt/graphite/storage/log/
+
+sudo /usr/sbin/rcapache2 start
 ```
 
-Files needed:
 
-Run: sudo python setup.py install
-* graphite-web-0.9.10.tar.gz
-* whisper-0.9.10.tar.gz
-* carbon-0.9.10.tar.gz
+#### <a name="Troubles?">Troubles?</a> ####
 
-* django-tagging-0.3.1.tar.gz
-* Django-1.1.4.tar.gz
+<h5><a name="Graphite_web_app_doesn't_work">Graphite web app doesn't work</a></h5>
 
-Run: sudo zypper in
-* python-Twisted-12.0.0-10.1.x86_64.rpm
+Check logs:
 
-YaST2:
-* apache2 2.2.34
-* apache2-mod_wsgi 4.4.13
+```
+less /opt/graphite/storage/log/webapp/error.log
+less /var/log/apache2/error_log
+```
+
+<h5><a name="Unable_to_suse_register">Unable to suse_register</a></h5>
+
+https://stackoverflow.com/a/45343158
 
 
 #### <a name="Configuration">Configuration</a> ####
@@ -258,6 +445,8 @@ YaST2:
 
 ```
 TIME_ZONE = 'Europe/Vilnius'
+EMAIL_HOST_USER = 'admin'
+EMAIL_HOST_PASSWORD = 'admin'
 ```
 
 
@@ -334,6 +523,32 @@ YaST:
 kernel-source 3.0
 kernel-default-devel
 gcc
+```
+
+
+### <a name="Presentation">Presentation</a> ###
+
+* Show how it looks in real project (litgrid/esb)
+Show rebar config
+esb.app.src
+sys.config
+lager
+exometer_core
+exometer_graphite
+
+* Move to exometer_graphite
+explain static configuration
+* test0
+
+
+### <a name="Setup_Graphite_0.9.10_on_SLES_11_SP4">Setup Graphite 0.9.10 on SLES 11 SP4</a> ###
+
+
+#### <a name="Steps">Steps</a> ####
+
+
+```
+PYTHONPATH=/opt/graphite/webapp django-admin.py syncdb --settings=graphite.settings
 ```
 
 

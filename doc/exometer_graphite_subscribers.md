@@ -5,8 +5,7 @@
 * [Function Index](#index)
 * [Function Details](#functions)
 
-Responsible for managing subscription configuration given in
-sys.config.
+Responsible for managing subscription configuration given in sys.config.
 
 __Behaviours:__ [`gen_server`](gen_server.md).
 

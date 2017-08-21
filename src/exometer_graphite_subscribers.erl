@@ -15,8 +15,7 @@
 %\--------------------------------------------------------------------
 
 %%% @doc
-%%% Responsible for managing subscription configuration given in
-%%% sys.config
+%%% Responsible for managing subscription configuration given in sys.config
 %%%
 -module(exometer_graphite_subscribers).
 -behaviour(gen_server).
@@ -37,7 +36,7 @@
 
 -define(APP, exometer_graphite).
 -define(REPORTER, exometer_graphite_reporter).
--define(DEFAULT_SUBSCRIPTION_DELAY, 10000).
+-define(DEFAULT_RESUB_DELAY, 60000).
 
 
 %%% ============================================================================
@@ -45,7 +44,7 @@
 %%% ============================================================================
 
 -record(state, {
-    subscription_delay  :: integer()
+    resub_delay :: integer()
 }).
 
 
@@ -55,12 +54,13 @@
 %%% ============================================================================
 
 start_link() ->
-    lager:debug("Exometer_graphite_subscribers (gen_server) has started."),
     gen_server:start_link(?MODULE, [], []).
 
 force_resubscribe() ->
-    lager:debug("FORCED RESUBSCRIPTION"),
-    refresh_subscriptions().
+    lager:debug("Forced resubscription"),
+    RequiredSubs = form_required_subs(),
+    subscribe(RequiredSubs),
+    ok.
 
 
 
@@ -72,10 +72,8 @@ force_resubscribe() ->
 %% Sets up subscription configuration loop.
 %%
 init(_) ->
-    SubscriptionDelay = application:get_env(?APP, subscription_delay, ?DEFAULT_SUBSCRIPTION_DELAY),
-    State = #state{
-        subscription_delay = SubscriptionDelay
-    },
+    ResubDelay = application:get_env(?APP, resub_delay, ?DEFAULT_RESUB_DELAY),
+    State = #state{resub_delay = ResubDelay},
     self() ! update,
     {ok, State}.
 
@@ -99,9 +97,8 @@ handle_cast(Unknown, State) ->
 %% @doc
 %% Updates subscriptions to metrics and continues message sending loop.
 %%
-handle_info(update, State = #state{subscription_delay = SubscriptionDelay}) ->
-    erlang:send_after(SubscriptionDelay, self(), update),
-    refresh_subscriptions(),
+handle_info(update, State = #state{resub_delay = ResubDelay}) ->
+    erlang:send_after(ResubDelay, self(), update),
     {noreply, State};
 
 handle_info(Unknown, State) ->
@@ -128,53 +125,68 @@ terminate(_Reason, _State) ->
 %%% Internal functions.
 %%% ============================================================================
 
-%% @private
-%% Refreshes subscriptions and continues subscription loop.
+%%  @private
+%%  Forms a list of Required Subscriptions.
 %%
-refresh_subscriptions() ->
-    Subs = case application:get_env(?APP, subscriptions, []) of
-        SubsFromEnv ->
-            SubsFromEnv;
-        [] ->
-            []
-    end,
-    [resubscribe(Patterns, DatapointSetting, Interval)
-        || {Patterns, DatapointSetting, Interval} <- Subs],
-    lager:debug("RESUBSCRIBED"),
-    ok.
+form_required_subs() ->
+    Subs = application:get_env(?APP, subscriptions, []),
+    ReqSubs = lists:foldl(
+        fun({Patterns, DatapointSetting, Interval}, Acc) ->
+            MatchSpecPatterns = lists:map(
+                fun({NamePattern, Type}) ->
+                    {{NamePattern, Type, '_'}, [], ['$_']}
+                end, Patterns),
+            Metrics = exometer:select(MatchSpecPatterns),
+            ReqSubsGroup = lists:foldl(
+                fun({MetricName, _Type, _State}, SubsGroupAcc) ->
+                    SubDatapoints = case DatapointSetting of
+                                        all ->
+                                            exometer:info(MetricName, datapoints);
+                                        Datapoints ->
+                                            intersection(Datapoints, exometer:info(MetricName, datapoints))
+                                    end,
+                    RequiredSubs = [{MetricName, SubDatapoint, Interval} || SubDatapoint <- SubDatapoints],
+                    [RequiredSubs|SubsGroupAcc]
+                end, [], Metrics),
+            [ReqSubsGroup|Acc]
+        end, [], Subs),
+    lists:flatten(ReqSubs).
 
 
 %%  @private
-%%  Resubscribes to a given subscription.
+%%  Subscribes.
+%%  To understand better, I suggest drawing set diagram of ReqSubs, AlreadySubs,
+%%  WasteSubs.
 %%
-resubscribe(Patterns, DatapointSetting, Interval) ->
-    %
-    % Select those metrics from exometer that fits our metric name pattern.
-    MatchSpecPatterns = lists:map(
-        fun({NamePattern, Type}) -> {{NamePattern, Type, '_'}, [], ['$_']} end,
-        Patterns),
-    Metrics = exometer:select(MatchSpecPatterns),
-    [subscribe_to_metric(Metric, DatapointSetting, Interval) || Metric <- Metrics].
-
-
-%%  @private
-%%  Subscribes to a metric.
-%%
-subscribe_to_metric(Metric, DatapointSetting, Interval) ->
-    {MetricName, _Type, _State} = Metric,
-    lager:debug("DatapointSetting: ~p", [DatapointSetting]),
-    SubDatapoints = case DatapointSetting of
-        all ->
-            exometer:info(MetricName, datapoints);
-        Datapoints ->
-            intersection(Datapoints, exometer:info(MetricName, datapoints))
-    end,
-    RequiredSubs = [{MetricName, SubDatapoint} || SubDatapoint <- SubDatapoints],
+subscribe(RequiredSubs) ->
     OldSubs = lists:flatten([{OldMetric, Datapoint}
-        || {OldMetric, Datapoint, Interval, _Extra} <- exometer_report:list_subscriptions(?REPORTER)]),
-    NewSubs = lists:subtract(RequiredSubs, OldSubs),
-    [exometer_report:subscribe(?REPORTER, MetricName, SubDatapoint, Interval) || {MetricName, SubDatapoint} <- NewSubs],
+        || {OldMetric, Datapoint, _Interval, _Extra} <-
+            exometer_report:list_subscriptions(?REPORTER)]),
+    AlreadySubs = sub_intersection(RequiredSubs, OldSubs),
+    NewSubs = RequiredSubs -- AlreadySubs,
+    ok = lists:foreach(fun({MetricName, SubDatapoint, Interval}) ->
+        exometer_report:subscribe(?REPORTER, MetricName, SubDatapoint, Interval)
+                       end, NewSubs),
+    WasteSubs = OldSubs -- lists:map(
+        fun({MetricName, SubDatapoint, _Interval}) ->
+            {MetricName, SubDatapoint}
+        end,
+        AlreadySubs),
+    WasteSubsMetrics = [WasteMetric || {WasteMetric, _Datapoint} <- WasteSubs],
+    % removing duplicates
+    lists:usort(WasteSubsMetrics),
+    lists:foreach(fun(MetricName) ->
+        exometer_report:unsubscribe_all(?REPORTER, MetricName)
+        end, WasteSubsMetrics),
     ok.
+
+
+%%  @private
+%%  Finds intersecting members of two lists.
+%%
+sub_intersection(Subs1, Subs2) ->
+    [{MetricName, DataPoint, Interval} || {MetricName, DataPoint, Interval} <-
+        Subs1, lists:keymember(MetricName, 1, Subs2), lists:keymember(DataPoint, 2, Subs2)].
 
 
 %%  @private
@@ -195,7 +207,7 @@ intersection(List1, List2) ->
 %%
 %%  Check, if intersection is found well.
 %%
-find_intersection_test_() ->
+intersection_test_() ->
 
     [
         ?_assertEqual([b,c], intersection([a,b,c], [b,c,d])),
@@ -205,5 +217,13 @@ find_intersection_test_() ->
     ].
 
 
+sub_intersection_test_() ->
+
+    [
+        ?_assertEqual([{[a,b], mean, 5000}], sub_intersection([{[a,b], mean, 5000}], [{[a,b], mean}])),
+        ?_assertEqual([{[a,b], mean, 5000}, {[a,c], max, 10000}], sub_intersection(
+            [{[a,b], mean, 5000}, {[a,c], max, 10000}], [{[a,b], mean}, {[a,c], max}])),
+        ?_assertEqual([], sub_intersection([{[a,b], mean, 5000}], [{[a,b], min}]))
+    ].
 
 -endif.

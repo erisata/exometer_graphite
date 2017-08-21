@@ -52,7 +52,6 @@ all() -> [
 init_per_testcase(test_message_sending, Config) ->
     application:load(lager),
     application:set_env(lager, handlers, [{lager_console_backend, debug}]),
-
     application:set_env(?APP, subscriptions, []),
     {ok, Apps} = application:ensure_all_started(?APP),
     [{exometer_graphite_apps, Apps} | Config];
@@ -68,13 +67,15 @@ init_per_testcase(test_static_configuration, Config) ->
 %%  Test case test_message_sending ending.
 %%
 end_per_testcase(test_message_sending, _Config) ->
-    [exometer_report:unsubscribe_all(?REPORTER, Metric)
-        || {Metric, _, _, _} <- exometer_report:list_subscriptions(?REPORTER)],
+    lists:foreach(fun({Metric, _, _, _}) ->
+        exometer_report:unsubscribe_all(?REPORTER, Metric)
+                  end, exometer_report:list_subscriptions(?REPORTER)),
     ok;
 
 end_per_testcase(test_static_configuration, _Config) ->
-    [exometer_report:unsubscribe_all(?REPORTER, Metric)
-        || {Metric, _, _, _} <- exometer_report:list_subscriptions(?REPORTER)],
+    lists:foreach(fun({Metric, _, _, _}) ->
+        exometer_report:unsubscribe_all(?REPORTER, Metric)
+                  end, exometer_report:list_subscriptions(?REPORTER)),
     ok.
 
 
@@ -107,38 +108,42 @@ test_message_sending(_Config) ->
     <<Length:(4*8), Info:(6*8), Path:(20*8), Separator:(1*8),
         _Timestamp:(4*8), Ending:(6*8), _OtherMsgs/binary>> = Message,
     TimestampNow = binary:encode_unsigned(erlang:system_time(seconds), little),
-    TestMessage = <<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",
+    ExpectedMessage = <<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",
         74, TimestampNow/binary,75,0,134,134,101,46>>,
-    <<TLength:(4*8), TInfo:(6*8), TPath:(20*8),
-        TSeparator:(1*8), _TTimestamp:(4*8), TEnding:(6*8)>> = TestMessage,
-    true = Length =:= TLength,
-    true = Info =:= TInfo,
-    true = Path =:= TPath,
-    true = Separator =:= TSeparator,
+    <<ExpectedLength:(4*8), ExpectedInfo:(6*8), ExpectedPath:(20*8),
+        ExpectedSeparator:(1*8), _ExpectedTimestamp:(4*8), ExpectedEnding:(6*8)>>
+        = ExpectedMessage,
+    %
+    % fix and naming expected
+    ExpectedLength = Length,
+    ExpectedInfo = Info,
+    ExpectedPath = Path,
+    ExpectedSeparator = Separator,
     % Timestamp check ignored
-    true = Ending =:= TEnding,
-    lager:debug("From tcp: ~p~nFor test: ~p", [Message, TestMessage]).
+    ExpectedEnding = Ending.
 
 
 %%  @doc
 %%  Check, if static subscriptions are passed to exometer report.
+%%  Check, if a future subscription is working when its metric is added.
+%%  Check, if subscription is removed if a metric is removed.
 %%
 test_static_configuration(_Config) ->
-    timer:sleep(500),
-    %
     exometer:new([eproc_core, lager, warning], histogram),
     exometer:new([eproc_core, store, get_message], spiral),
     %
-    ok = exometer:update_or_create([testEL, lager, debug            ], 1, histogram, []),
-    ok = exometer:update_or_create([exometer_lager, lager, info     ], 1, histogram, []),
+    ok = exometer:update_or_create([testEL, lager, debug        ], 1, histogram, []),
+    ok = exometer:update_or_create([exometer_lager, lager, info ], 1, histogram, []),
     %
     % Forcing resubscribe, though it would be automatic resubscription by interval.
     ok = exometer_graphite_subscribers:force_resubscribe(),
     timer:sleep(200),
+    % sort, ActualSubs remove
     ExpectedSubs = [
         {[testEL,lager,debug],min,4000,[]},
         {[testEL,lager,debug],mean,4000,[]},
-        {[testEL,lager,debug],max,4000,[]},{[exometer_lager,lager,info],n,5000,[]},
+        {[testEL,lager,debug],max,4000,[]},
+        {[exometer_lager,lager,info],n,5000,[]},
         {[exometer_lager,lager,info],min,5000,[]},
         {[exometer_lager,lager,info],median,5000,[]},
         {[exometer_lager,lager,info],mean,5000,[]},
@@ -154,11 +159,11 @@ test_static_configuration(_Config) ->
         {[eproc_core,lager,warning],min,20000,[]},
         {[eproc_core,lager,warning],mean,20000,[]},
         {[eproc_core,lager,warning],max,20000,[]}],
-    ActualSubs = exometer_report:list_subscriptions(exometer_graphite_reporter),
-    true = ActualSubs =:= ExpectedSubs,
+    ExpectedSubs = exometer_report:list_subscriptions(exometer_graphite_reporter),
     %
     % Checking a situation when a new metric fitting subscription is added.
     exometer:new([eproc_core, store, attachment_delete], spiral),
+    exometer:delete([eproc_core, lager, warning]),
     ok = exometer_graphite_subscribers:force_resubscribe(),
     timer:sleep(200),
     %
@@ -181,10 +186,9 @@ test_static_configuration(_Config) ->
         {[exometer_lager,lager,info],50,5000,[]},
         {[eproc_core,store,get_message],one,10000,[]},
         {[eproc_core,store,get_message],count,10000,[]},
-        {[eproc_core,store,attachment_delete],one,10000,[]},    %% NEWLY ADDED
-        {[eproc_core,store,attachment_delete],count,10000,[]},  %% NEWLY ADDED
-        {[eproc_core,lager,warning],min,20000,[]},
-        {[eproc_core,lager,warning],mean,20000,[]},
-        {[eproc_core,lager,warning],max,20000,[]}],
-    NewerActualSubs = exometer_report:list_subscriptions(?REPORTER),
-    true = NewerActualSubs =:= NewerExpectedSubs.
+        {[eproc_core,store,attachment_delete],one,10000,[]},    %% New
+        {[eproc_core,store,attachment_delete],count,10000,[]}], %% New
+        % {[eproc_core,lager,warning],min,20000,[]},            %% Deleted
+        % {[eproc_core,lager,warning],mean,20000,[]},           %% Deleted
+        % {[eproc_core,lager,warning],max,20000,[]}],           %% Deleted
+    NewerExpectedSubs = exometer_report:list_subscriptions(?REPORTER).

@@ -38,9 +38,9 @@
 -define(APP, exometer_graphite).
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, 2004).
--define(DEFAULT_CONNECT_TO_CARBON_TIMEOUT, 5000).
--define(DEFAULT_SEND_TO_GRAPHITE_DELAY, 10000).
--define(DEFAULT_RETRY_NUMBER, 2).
+-define(DEFAULT_CONNECT_TIMEOUT, 5000).
+-define(DEFAULT_SEND_DELAY, 10000).
+-define(DEFAULT_RETRIES, 2).
 
 
 %%% ============================================================================
@@ -48,12 +48,13 @@
 %%% ============================================================================
 
 -record(state, {
-    host                        :: string(),
-    port                        :: integer(),
-    connect_to_carbon_timeout   :: integer(),
-    socket                      :: term() | undefined,
-    messages                    :: list(),
-    send_to_graphite_delay      :: integer()
+    host            :: string(),
+    port            :: integer(),
+    connect_timeout :: integer(),
+    socket          :: term() | undefined,
+    send_delay      :: integer(),
+    retries         :: integer(),
+    messages        :: list()
 }).
 
 
@@ -68,16 +69,18 @@
 exometer_init(_Opts) ->
     Host = application:get_env(?APP, host, ?DEFAULT_HOST),
     Port = application:get_env(?APP, port, ?DEFAULT_PORT),
-    ConnectToCarbonTimeout = application:get_env(?APP, connect_to_carbon_timeout, ?DEFAULT_CONNECT_TO_CARBON_TIMEOUT),
-    SendToGraphiteDelay = application:get_env(?APP, send_to_graphite_delay, ?DEFAULT_SEND_TO_GRAPHITE_DELAY),
+    ConnectTimeout = application:get_env(?APP, connect_timeout, ?DEFAULT_CONNECT_TIMEOUT),
+    SendDelay = application:get_env(?APP, send_delay, ?DEFAULT_SEND_DELAY),
+    Retries = application:get_env(?APP, retries, ?DEFAULT_RETRIES),
     State = #state{
         host = Host,
         port = Port,
-        connect_to_carbon_timeout = ConnectToCarbonTimeout,
-        send_to_graphite_delay = SendToGraphiteDelay,
+        connect_timeout = ConnectTimeout,
+        send_delay = SendDelay,
+        retries = Retries,
         messages = []
     },
-    erlang:send_after(SendToGraphiteDelay, self(), send),
+    erlang:send_after(SendDelay, self(), send),
     {ok, State}.
 
 
@@ -126,10 +129,11 @@ exometer_cast(Unknown, State) ->
 %%
 exometer_info(send, State) ->
     #state{
-        send_to_graphite_delay = SendToGraphiteDelay
+        send_delay = SendDelay,
+        retries = Retries
     } = State,
-    erlang:send_after(SendToGraphiteDelay, self(), send),
-    {ok, _NewState} = send(?DEFAULT_RETRY_NUMBER, State);
+    erlang:send_after(SendDelay, self(), send),
+    {ok, _NewState} = send(Retries, State);
 
 
 %% @doc
@@ -173,9 +177,9 @@ ensure_connection(State = #state{socket = undefined}) ->
     #state{
         host     = Host,
         port     = Port,
-        connect_to_carbon_timeout = ConnectToCarbonTimeout
+        connect_timeout = ConnectTimeout
     } = State,
-    case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectToCarbonTimeout) of
+    case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectTimeout) of
         {ok, NewSocket} ->
             NewState = State#state{socket = NewSocket},
             lager:debug("Connected, socket=~p", [NewSocket]),
@@ -235,7 +239,6 @@ send(Retries, State) ->
 %%  Sends buffered messages to Graphite
 %%
 send(State = #state{socket = Socket, messages = Messages}) ->
-%%    lager:info("Messages: ~p", [Messages]), % TEMP
     case Messages of
         [] ->
             {ok, State};
