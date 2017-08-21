@@ -19,7 +19,6 @@
 %%%
 -module(exometer_graphite_subscribers).
 -behaviour(gen_server).
--compile([{parse_transform, lager_transform}]).
 -export([
     start_link/0,
     force_resubscribe/0
@@ -34,7 +33,6 @@
 ]).
 -include_lib("exometer_core/include/exometer.hrl").
 
--define(APP, exometer_graphite).
 -define(REPORTER, exometer_graphite_reporter).
 -define(DEFAULT_RESUB_DELAY, 60000).
 
@@ -57,7 +55,7 @@ start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
 force_resubscribe() ->
-    lager:debug("Forced resubscription"),
+%    lager:debug("Forced resubscription"),
     RequiredSubs = form_required_subs(),
     subscribe(RequiredSubs),
     ok.
@@ -72,7 +70,7 @@ force_resubscribe() ->
 %% Sets up subscription configuration loop.
 %%
 init(_) ->
-    ResubDelay = application:get_env(?APP, resub_delay, ?DEFAULT_RESUB_DELAY),
+    ResubDelay = exometer_graphite_app:get_env(resub_delay, ?DEFAULT_RESUB_DELAY),
     State = #state{resub_delay = ResubDelay},
     self() ! update,
     {ok, State}.
@@ -81,16 +79,14 @@ init(_) ->
 %% @doc
 %% Unused.
 %%
-handle_call(Unknown, _From, State) ->
-    lager:warning("Unknown call: ~p", [Unknown]),
+handle_call(_Unknown, _From, State) ->
     {noreply, State}.
 
 
 %% @doc
 %% Unused.
 %%
-handle_cast(Unknown, State) ->
-    lager:warning("Unknown cast: ~p", [Unknown]),
+handle_cast(_Unknown, State) ->
     {noreply, State}.
 
 
@@ -101,8 +97,7 @@ handle_info(update, State = #state{resub_delay = ResubDelay}) ->
     erlang:send_after(ResubDelay, self(), update),
     {noreply, State};
 
-handle_info(Unknown, State) ->
-    lager:warning("Unknown info: ~p", [Unknown]),
+handle_info(_Unknown, State) ->
     {noreply, State}.
 
 
@@ -129,7 +124,7 @@ terminate(_Reason, _State) ->
 %%  Forms a list of Required Subscriptions.
 %%
 form_required_subs() ->
-    Subs = application:get_env(?APP, subscriptions, []),
+    Subs = exometer_graphite_app:get_env(subscriptions, []),
     ReqSubs = lists:foldl(
         fun({Patterns, DatapointSetting, Interval}, Acc) ->
             MatchSpecPatterns = lists:map(

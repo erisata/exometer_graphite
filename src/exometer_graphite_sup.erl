@@ -15,11 +15,10 @@
 %\--------------------------------------------------------------------
 
 %%% @doc
-%%% exometer_graphite_subscribers gen_server supervisor.
+%%% The main supervisor for the application.
 %%%
--module(exometer_graphite_subscribers_sup).
+-module(exometer_graphite_sup).
 -behaviour(supervisor).
--compile([{parse_transform, lager_transform}]).
 -export([start_link/0]).
 -export([init/1]).
 
@@ -32,19 +31,7 @@
 %%  Create this supervisor.
 %%
 start_link() ->
-    lager:info("exometer_graphite_subscribers_sup has started!"),
-    supervisor:start_link({local, subscribers}, ?MODULE, {}).
-
-
-%%  @doc
-%%  Stop this supervisor.
-%%
-stop() ->
-    case whereis(ppool) of
-        P when is_pid(P) ->
-            exit(P, kill);
-        _ -> ok
-    end.
+    supervisor:start_link({local, ?MODULE}, ?MODULE, {}).
 
 
 
@@ -56,12 +43,11 @@ stop() ->
 %%  Supervisor initialization.
 %%
 init({}) ->
-    MaxRestart = 1,
-    MaxTime = 3000,
-    {ok, {{one_for_all, MaxRestart, MaxTime},
-            [{serv,
-                {exometer_graphite_subscribers, start_link, []},
-                permanent,
-                5000, % Shutdown time
-                worker,
-                [exometer_graphite_subscribers]}]}}.
+    SubscribersSpec = {exometer_graphite_subscribers,
+        {exometer_graphite_subscribers, start_link, []},
+        permanent,
+        5000, % Shutdown time
+        worker,
+        [exometer_graphite_subscribers]
+    },
+    {ok, {{one_for_all, 10, 10000}, [SubscribersSpec]}}.

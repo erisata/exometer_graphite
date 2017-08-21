@@ -15,7 +15,7 @@
 %\--------------------------------------------------------------------
 
 {application, exometer_graphite, [
-    {description, "Exometer Graphite: allows Exometer and Graphite integration."},
+    {description, "Pushes Exometer metrics to a Graphite server."},
     {vsn, git},
     {mod, {exometer_graphite_app, []}},
     {applications, [

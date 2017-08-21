@@ -15,12 +15,10 @@
 %\--------------------------------------------------------------------
 
 %%% @doc
-%%% Module for Exometer and Graphite integration.
-%%% Modify `sys.config' to change integration settings.
+%%% Exometer reporter module for sending metrics to a Graphite server.
 %%%
 -module(exometer_graphite_reporter).
 -behaviour(exometer_report).
--compile([{parse_transform, lager_transform}]).
 -export([
     exometer_init/1,
     exometer_info/2,
@@ -33,9 +31,7 @@
     exometer_setopts/4,
     exometer_terminate/2
 ]).
--include_lib("exometer_core/include/exometer.hrl").
 
--define(APP, exometer_graphite).
 -define(DEFAULT_HOST, "localhost").
 -define(DEFAULT_PORT, 2004).
 -define(DEFAULT_CONNECT_TIMEOUT, 5000).
@@ -67,11 +63,11 @@
 %% Initializes the reporter and starts message sending loop.
 %%
 exometer_init(_Opts) ->
-    Host = application:get_env(?APP, host, ?DEFAULT_HOST),
-    Port = application:get_env(?APP, port, ?DEFAULT_PORT),
-    ConnectTimeout = application:get_env(?APP, connect_timeout, ?DEFAULT_CONNECT_TIMEOUT),
-    SendDelay = application:get_env(?APP, send_delay, ?DEFAULT_SEND_DELAY),
-    Retries = application:get_env(?APP, retries, ?DEFAULT_RETRIES),
+    Host = exometer_graphite_app:get_env(host, ?DEFAULT_HOST),
+    Port = exometer_graphite_app:get_env(port, ?DEFAULT_PORT),
+    ConnectTimeout = exometer_graphite_app:get_env(connect_timeout, ?DEFAULT_CONNECT_TIMEOUT),
+    SendDelay = exometer_graphite_app:get_env(send_delay, ?DEFAULT_SEND_DELAY),
+    Retries = exometer_graphite_app:get_env(retries, ?DEFAULT_RETRIES),
     State = #state{
         host = Host,
         port = Port,
@@ -111,16 +107,14 @@ exometer_unsubscribe(_Metric, _DataPoint, _Extra, State) ->
 %% @doc
 %% Unused.
 %%
-exometer_call(Unknown, From, State) ->
-    lager:warning("Unknown call ~p from ~p", [Unknown, From]),
+exometer_call(_Unknown, _From, State) ->
     {ok, State}.
 
 
 %% @doc
 %% Unused.
 %%
-exometer_cast(Unknown, State) ->
-    lager:warning("Unknown cast: ~p", [Unknown]),
+exometer_cast(_Unknown, State) ->
     {ok, State}.
 
 
@@ -139,8 +133,7 @@ exometer_info(send, State) ->
 %% @doc
 %% Unused.
 %%
-exometer_info(Unknown, State) ->
-    lager:info("Unknown info: ~p", [Unknown]),
+exometer_info(_Unknown, State) ->
     {ok, State}.
 
 
@@ -182,7 +175,6 @@ ensure_connection(State = #state{socket = undefined}) ->
     case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectTimeout) of
         {ok, NewSocket} ->
             NewState = State#state{socket = NewSocket},
-            lager:debug("Connected, socket=~p", [NewSocket]),
             {ok, NewState};
         {error, Reason} ->
             {error, Reason}
@@ -214,7 +206,7 @@ disconnect(State) ->
 %%  Manages connection to a socket and sending message to Graphite.
 %%
 send(0, State) ->
-    lager:warning("Error sending message. No more retries."),
+%    lager:warning("Error sending message. No more retries."),
     {ok, State};
 
 send(Retries, State) ->
@@ -223,13 +215,13 @@ send(Retries, State) ->
             case send(ConnectedState) of
                 {ok, AfterSentState} ->
                     {ok, AfterSentState};
-                {error, Reason} ->
-                    lager:warning("Error sending message. Reason: ~p", [Reason]),
+                {error, _Reason} ->
+%                    lager:warning("Error sending message. Reason: ~p", [Reason]),
                     {ok, DisconnectedState} = disconnect(ConnectedState),
                     send(Retries - 1, DisconnectedState)
             end;
-        {error, Reason} ->
-            lager:warning("Unable to connect... Reason: ~p", [Reason]),
+        {error, _Reason} ->
+%            lager:warning("Unable to connect... Reason: ~p", [Reason]),
             {ok, DisconnectedState} = disconnect(State),
             send(Retries - 1, DisconnectedState)
     end.

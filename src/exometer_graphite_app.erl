@@ -19,9 +19,8 @@
 %%%
 -module(exometer_graphite_app).
 -behaviour(application).
--compile([{parse_transform, lager_transform}]).
--export([name/0, version/0, get_env/1, get_env/2, priv_dir/0]).
--export([start/2, stop/0]).
+-export([get_env/1, get_env/2]).
+-export([start/2, stop/1]).
 
 -define(APP, exometer_graphite).
 
@@ -29,27 +28,8 @@
 %%% Public API.
 %%% ============================================================================
 
-%%
-%%  Returns application name.
-%%
--spec name() -> atom().
-
-name() ->
-    ?APP.
-
-
-%%
-%%
-%%
-version() ->
-    case lists:keyfind(?APP, 1, application:which_applications()) of
-        {_App, _Type, Version}  -> Version;
-        false                   -> undefined
-    end.
-
-
-%%
-%%
+%%  @doc
+%%  Get environment variable for this application.
 %%
 -spec get_env(Name :: atom()) -> undefined | {ok, Value :: term()}.
 
@@ -57,8 +37,8 @@ get_env(Name) ->
     application:get_env(?APP, Name).
 
 
-%%
-%%
+%%  @doc
+%%  Get environment variable for this application.
 %%
 -spec get_env(Name :: atom(), Default :: term()) -> Value :: term().
 
@@ -66,37 +46,22 @@ get_env(Name, Default) ->
     application:get_env(?APP, Name, Default).
 
 
-%%
-%%  Returns a path to the file in the application's priv directory.
-%%
-priv_dir() ->
-    case code:priv_dir(?APP) of
-        {error, bad_name} -> "priv"; % To allow testing without creating whole app.
-        Dir               -> Dir
-    end.
-
-
 
 %%% ============================================================================
 %%% Application callbacks
 %%% ============================================================================
 
-%%
-%% Start the application.
+%%  @doc
+%%  Start the application.
 %%
 start(_StartType, _StartArgs) ->
-    case exometer_graphite_subscribers_sup:start_link() of
-        {ok, Pid} ->
-            {ok, Pid};
-        {error, Reason} ->
-            {error, Reason}
-    end.
+    exometer_graphite_sup:start_link().
 
 
+%%  @doc
+%%  Stop the application.
 %%
-%% Stop the application.
-%%
-stop() ->
+stop(_State) ->
     ok.
 
 

@@ -10,9 +10,8 @@ doc/erlang.png
 doc/stylesheet.css
 erl_crash.dump
 ebin
-rel/example_project
 .concrete/DEV_MODE
-.rebar
+.rebard
 log/
-/.project
 logs/
+/.project
