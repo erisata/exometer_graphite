@@ -19,6 +19,7 @@
 %%%
 -module(exometer_graphite_reporter).
 -behaviour(exometer_report).
+-compile([{parse_transform, lager_transform}]).
 -export([
     exometer_init/1,
     exometer_info/2,
@@ -206,7 +207,7 @@ disconnect(State) ->
 %%  Manages connection to a socket and sending message to Graphite.
 %%
 send(0, State) ->
-%    lager:warning("Error sending message. No more retries."),
+    lager:warning("Error sending message. No more retries."),
     {ok, State};
 
 send(Retries, State) ->
@@ -215,13 +216,13 @@ send(Retries, State) ->
             case send(ConnectedState) of
                 {ok, AfterSentState} ->
                     {ok, AfterSentState};
-                {error, _Reason} ->
-%                    lager:warning("Error sending message. Reason: ~p", [Reason]),
+                {error, Reason} ->
+                    lager:warning("Error sending message to the graphite server, reason: ~p", [Reason]),
                     {ok, DisconnectedState} = disconnect(ConnectedState),
                     send(Retries - 1, DisconnectedState)
             end;
-        {error, _Reason} ->
-%            lager:warning("Unable to connect... Reason: ~p", [Reason]),
+        {error, Reason} ->
+            lager:warning("Unable to connect to the graphite server, reason: ~p", [Reason]),
             {ok, DisconnectedState} = disconnect(State),
             send(Retries - 1, DisconnectedState)
     end.

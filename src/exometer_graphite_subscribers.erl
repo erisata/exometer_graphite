@@ -15,7 +15,7 @@
 %\--------------------------------------------------------------------
 
 %%% @doc
-%%% Responsible for managing subscription configuration given in sys.config
+%%% Responsible for managing subscription configuration given in `sys.config'.
 %%%
 -module(exometer_graphite_subscribers).
 -behaviour(gen_server).
@@ -31,7 +31,6 @@
     code_change/3,
     terminate/2
 ]).
--include_lib("exometer_core/include/exometer.hrl").
 
 -define(REPORTER, exometer_graphite_reporter).
 -define(DEFAULT_RESUB_DELAY, 60000).
@@ -51,11 +50,17 @@
 %%% API functions.
 %%% ============================================================================
 
+%%  @doc
+%%  Start a subscription manager.
+%%
 start_link() ->
     gen_server:start_link(?MODULE, [], []).
 
+
+%%  @doc
+%%  Can be used to initiate subscription update manually.
+%%
 force_resubscribe() ->
-%    lager:debug("Forced resubscription"),
     RequiredSubs = form_required_subs(),
     subscribe(RequiredSubs),
     ok.
