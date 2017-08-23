@@ -1,112 +1,114 @@
-@author Kazimieras Senvaitis <kazimieras.senvaitis@erisata.lt>
 @title The exometer_graphite application
-
 @doc
 
-== Contents ==
+This application pushes Exometer metrics to a Graphite server. Also, the
+application allows selection of relevant Exometer metrics that are created already
+or will be created in future.
+
+Before sending, metrics are stored in configurable time interval buffer and
+sent to Carbon (Graphite backend) using Pickle protocol.
 
 
-<ol>
-    <li>{@section Introduction}</li>
-    <li>{@section Graphite setup}</li>
-    <li>{@section Usage}</li>
-    <li>{@section System Requirement Specification}</li>
-    <li>{@section Developer notes}</li>
-    <li>{@section TODO}</li>
-</ol>
+== Configuration ==
+This application configured in `sys.config' file.
 
+Configuration items:
+* host - address of a Graphite server. Default is "localhost"
+* port - port of Carbon receiving Pickle protocol messages. Default is 2004.
+* send_delay - time interval buffer of storing metrics before sending to Graphite.
+Default is 10 seconds.
+* connect_timeout - connection to Carbon timeout. In case connection cannot be
+established, this application retries specified number of times. After
+unsuccessful retries single send_delay interval loop is finished with pending messages for
+the next loop. Default is 5 seconds.
+* retries - how many times to try sending messages to Graphite in single
+send_delay interval loop.
+number of retries when sending messages to Carbon on the same socket.
+Default is 2.
+* resubscription_delay - time interval of renewing subscriptions. New metrics
+can be created or deleted. Default is 60 seconds.
+* subscriptions - selection of metrics that are wanted to be seen in Graphite.
+ Read next section for detail information.
 
-
-== Introduction ==
-
-
-This application provides Exometer Core and Graphite integration.
-It can be added as a dependency to an application which pushes metric
-data to Exometer Core.
-
-
-
-== Static subscription configuration ==
-
+== Subscription configuration ==
+ Selecting metrics
+is done using Erlang specification matching.
 
 **Note** that subscription entries are scanned in order, and **first match wins**.
-Subscribtions are renewed every subscription_delay,
-in case application creates new metrics in runtime.
+In case an application creates new metrics in runtime,
+subscriptions are renewed every resubscription_delay,
 
 Top-level generic expresion of a subscription configuration:
 ```
 {subscriptions, [
-            [subscription(), ...]}
+    subscription(),
+    ...
+]}
 '''
 
 === subscription() ===
 ```
-subscription() = {[{name_pattern(), type()},
-                    ...],
-                    datapoint_setting(), interval()}
+subscription() = {
+                     [
+                         {name_pattern(), type()},
+                         ...
+                     ],
+                     datapoint_setting(),
+                     interval()
+                 }
 '''
+
 === name_pattern() ===
 ```
-name_pattern() = list()
+name_pattern() = [name_part()]
 '''
+
 === type() ===
+Atom '_' is expression for any.
 ```
 type() = '_' | counter | fast_counter | gauge | histogram | spiral | duration | meter
 '''
 
 
-
-=== Examples ===
-<table border="1" summary="reference syntax">
-    <tr>
-        <th>Metric name</th>
-        <th>Type</th>
-        <th>Datapoints</th>
-        <th>Interval</th>
-        <th>Subscription</th>
-    </tr>
-    <tr>
-        <td>[axb, esb, ad]</td>
-        <td>*</td>
-        <td>*</td>
-        <td>*</td>
-        <td>10000</td>
-        <td>
+=== name_part() ===
+Atom '_' is expression for any.
 ```
-{[{ {[axb, esb, ad], '_', '_'}, [], ['$_']}],
-    {all}, 10000}
+name_part() = '_' | atom() | integer()
 '''
-        </td>
-    </tr>
-</table>
 
 
-== Usage ==
-
-
-Subscriptions to metrics can be set up in sys.config file using Erlang
-specification matching.
-
-
-=== Running in stand-alone mode ===
-
-
-To try out this application in stand-alone configure sys.config like this:
-
+== Example configuration ==
 ```
-[
     {exometer_graphite, [
         {host, "localhost"},
-        {port, 2004},
-        {connection_timeout, 5000},
-        {graphite_delay, 3000},
-        {subscription_delay, 1200000},
+        {port, 8096},
+        {connect_timeout, 5000},
+        {send_delay, 3000},
+        {retries, 2},
+        {resubscription_delay, 1200000},
         {subscriptions, [
-            {[{ {[testHis, lager], '_', '_'}, [], ['$_']},
-                { {[eproc_core, store, '_'], '_', '_'}, [], ['$_']}
-            ], {all}, 10000},
-            {[{ {[testGauge],'_','_'}, [], ['$_']}],
-                {specific, [count, one]}, 8000}
+            {
+                [
+                    {[program1,   lager, '_'], '_'},
+                    {[program2, lager, '_'], '_'}
+                ],
+                [mean, max, min],
+                20000
+            },
+            {
+                [{[program2, store, '_'], '_'}],
+                all,
+                10000},
+            {
+                [{[program3, lager, '_'], '_'}],
+                [mean, min, max],
+                4000
+            },
+            {
+                [{[program4, lager, '_'], '_'}],
+                all,
+                5000
+            }
         ]}
     ]},
     {exometer_core, [
@@ -116,436 +118,14 @@ To try out this application in stand-alone configure sys.config like this:
             ]}
         ]}
     ]}
-].
-'''
-
-And run these commands:
-```
-$ make deps
-$ env ERL_LIBS=deps erl -pa ebin/ -config test/sys
-> application:ensure_all_started(exometer_graphite).
-> exometer:start().
-> exometer:new([testZ, cpuUsage], gauge).
-'''
-Open localhost in browser and you should see zero line graph in exometer
-when metric testZ.cpuUsage.gauge is selected.
-
-
-=== Running as a dependency in another project ===
-
-
-
-Suppose we have a project that pushes metrics to exometer by using
-`exometer:update_or_create/4'.
-
-In order to use this project, we add it as a dependency in rebar.config.
-Also, we add this application to your application's `.app.src'
-
-In our sys.config we add configuration for this application (exometer_graphite)
-and define timings and subscriptions to metrics.
-
-Subscription format is list of subscriptions. Each subscription has a list of
-match_spec patterns for choosing metrics, tuple describing datapoints (for all
-datapoints of metrics use all) and interval.
-
-Example of static subscription configuration:
-```
-{subscriptions, [
-            {[ {[axb_core, lager, '_'], '_'},
-                { [eproc_core, lager, '_'], '_'}],
-                [mean, max, min], 20000},
-            {[ {[eproc_core, store, '_'], '_'}],
-                all, 10000},
-            {[ {[testEL, lager, '_'], '_'}],
-                [mean, min, max], 4000},
-            {[ {[exometer_lager, lager, '_'], '_'}],
-                all, 5000}
-        ]}
-'''
-
-Lets say our solution is running and we can't restart it and we want to subscribe
-to newly created metrics. To do that we can change run
-`exometer_graphite_subscribers:force_resubscribe/0' or
-wait for **automatic resubscription**. So, automatic resubscription allows to subscribe
-to the metrics that will exist in future.
-
-
-
-== System Requirement Specification ==
-
-=== Functional requirements ===
-1. Subscriptions are configured statically.
-1. Subscribing to metric names is done by providing a pattern.
-1. Possible to subscribe to specific datapoints.
-1. Possible to subscribe to all datapoints of the metric.
-1. Possible to subscribe to the metrics that are not yet existing.
-1. Possible to configure resubscription interval.
-1. Interval of metric sending to Graphite is configurable.
-1. Possible to subscribe to all metrics of an application  with single subscription line.
-1. Metrics buffering size is configured.
-
-
-=== Non-functional requirements ===
-
-
-1. Metrics are taken from an application which uses Exometer metrics framework.
-1. Metrics are grouped before sending to Graphite.
-1. Metrics are grouped using Pickle protocol.
-1. Metrics are stored in a buffer before sending to Graphite.
-1. An existing subscription is not overriden by identical subscription.
-1. Application does not crash if graphite server unavailable.
-1. Application crashes if static configuration produces error.
-
-
-== Developer notes ==
-
-
-* Subscribing twice to the same metric makes two subscriptions. Though
-exometer_report:list_subscription/X shows only the newer subscription.
-
-
-== TODOs ==
-
-
-Change idea project to erlang
-
-
-
-== Graphite setup ==
-
-
-To setup Graphite on Ubuntu 16.04 follow this guide until statsd configuration:
-https://linoxide.com/ubuntu-how-to/setup-graphite-statsd-ubuntu-16-04/
-
-To setup Graphite on OpenSUSE or SLES, get graphite-inst from Erisata. Build
-.rpm files and install them. Graphite-inst will be released in August, 2017.
-
-
-== Setup Graphite 0.9.16 on SLES 11 SP4 ==
-
-
-=== Files and Deps ===
-
-
-Main:
-(http://graphite.readthedocs.io/en/0.9.16/releases/0_9_16.html)
-* graphite-web-0.9.16.tar.gz
-* whisper-0.9.16.tar.gz
-* carbon-0.9.16.tar.gz
-
-Deps:
-* django-tagging-0.3.6.tar.gz
-(https://pypi.python.org/pypi/django-tagging/0.3.6)
-* Django-1.6.11.tar.gz
-(https://www.djangoproject.com/download/)
-* pytz-2016.1.tar.gz
-(https://pypi.python.org/pypi/pytz/2016.1#downloads)
-* python-Twisted-12.0.0-10.1.x86_64.rpm
-(https://software.opensuse.org/package/python-Twisted)
-
-Deps from YaST2:
-* apache2 2.2.34
-* apache2-mod_wsgi 4.4.13
-* ? python-setuptools
-* ? python-devel
-* ? libffi-devel
-* ? python-cairo-devel
-
-
-SLES 11.4 SDK (needed for python-Twisted(needs python-serial))
-(https://www.novell.com/support/kb/doc.php?id=7015337)
-(rpms also available for SLES 11.3):
-* sle-sdk-release-11.4-1.55.x86_64.rpm
-* sle-sdk-release-SDK-11.4-1.55.x86_64.rpm
-
-
-=== Steps ===
-
-
-=== Build .rpms ===
-
-```
-tar xzf whisper-0.9.16.tar.gz
-tar xzf graphite-web-0.9.16.tar.gz
-tar xzf carbon-0.9.16.tar.gz
-tar xzf Django-1.6.11.tar.gz
-tar xzf django-tagging-0.3.6.tar.gz
-tar xzf pytz-2016.1.tar.gz
-
-cd whisper-0.9.16/
-python setup.py bdist_rpm
-
-cd ../carbon-0.9.16/
-python setup.py bdist_rpm
-
-cd ../graphite-web-0.9.16/
-python setup.py bdist_rpm
-
-cd ../Django-1.6.11/
-python setup.py bdist_rpm
-
-cd ../django-tagging-0.3.6/
-python setup.py bdist_rpm
-
-cd ../pytz-2016.1/
-python setup.py bdist_rpm
-
-cd ..
-mkdir setup
-
-cp whisper-0.9.16/dist/whisper-0.9.16-1.noarch.rpm setup/
-cp carbon-0.9.16/dist/carbon-0.9.16-1.noarch.rpm setup/
-cp graphite-web-0.9.16/dist/graphite-web-0.9.16-1.noarch.rpm setup/
-cp Django-1.6.11/dist/Django-1.6.11-1.noarch.rpm setup/
-cp django-tagging-0.3.6/dist/django-tagging-0.3.6-1.noarch.rpm setup/
-cp pytz-2016.1/dist/pytz-2016.1-1.noarch.rpm setup/
-
-cp python-Twisted-12.0.0-10.1.x86_64.rpm setup/
-'''
-
-=== Installing ===
-```
-cd setup/
-
-zypper in whisper-0.9.16-1.noarch.rpm
-zypper in carbon-0.9.16-1.noarch.rpm
-zypper in Django-1.6.11-1.noarch.rpm
-zypper in django-tagging-0.3.6-1.noarch.rpm
-zypper in pytz-2016.1-1.noarch.rpm
-
-zypper in python-setuptools
-
 '''
 
 
-== Setup Graphite 0.9.10 on SLES 11 SP4 ==
+== Tips ==
 
 
-=== Files and Deps ===
-**Note** that this is just a list of files and deps. They have to be
-installed in specific order which is documented in next subsection.
-
-Main:
-(https://launchpad.net/graphite/0.9/0.9.10)
-* graphite-web-0.9.10.tar.gz
-* whisper-0.9.10.tar.gz
-* carbon-0.9.10.tar.gz
-
-Deps:
-* django-tagging-0.3.1.tar.gz
-(https://software.opensuse.org/package/python-django-tagging)
-* Django-1.1.4.tar.gz
-(https://www.djangoproject.com/download/)
-* python-Twisted-12.0.0-10.1.x86_64.rpm
-(https://software.opensuse.org/package/python-Twisted)
-
-
-Deps from YaST2:
-* apache2 2.2.34
-* apache2-mod_wsgi 4.4.13
-
-SLES 11.4 SDK (needed for python-Twisted(needs python-serial))
-(https://www.novell.com/support/kb/doc.php?id=7015337)
-(rpms also available for SLES 11.3):
-* sle-sdk-release-11.4-1.55.x86_64.rpm
-* sle-sdk-release-SDK-11.4-1.55.x86_64.rpm
-
-=== Troubles ===
-ImportError: cannot import name ILogObserver
-To solve this, install Twisted.
-
-=== Steps ===
-
-
+Following name_pattern() will select all available metrics with name starting
+with `program1':
 ```
-tar xzf carbon-0.9.10.tar.gz
-tar xzf graphite-web-0.9.10.tar.gz
-tar xzf whisper-0.9.10.tar.gz
-tar xzf Django-1.1.4.tar.gz
-tar xzf django-tagging-0.3.1.tar.gz
-
-cd graphite-web-0.9.10/
-python check-dependencies.py
-
-cd carbon-0.9.10/
-python setup.py install
-
-cd ../whisper-0.9.10/
-python setup.py install
-
-cd ../graphite-web-0.9.10/
-python setup.py install
-
-cd ../Django-1.1.4/
-python setup.py install
-
-cd ../django-tagging-0.3.1/
-python setup.py install
-
-cd ../
-zypper in python-Twisted-12.0.0-10.1.x86_64.rpm
-
-(** You need to register on suse in order to access online repos **)
-suse_register -a regcode-sles=383EA231EB5184 -a email=kazimieras.senvaitis@gmail.com -L /root/.suse_register.log
-zypper in apache2
-zypper in apache2-mod_wsgi
-
-cd /opt/graphite/webapp/graphite/
-cp local_settings.py.example local_settings.py
-vim local_settings.py
--> Change to given config in next chapter
-
-cd /opt/graphite/conf/
-cp graphite.wsgi.example graphite.wsgi
-cp storage-aggregation.conf.example storage-aggregation.conf
-cp storage-schemas.conf.example storage-schemas.conf
-cp carbon.conf.example carbon.conf
-
-cd /var/run
-mkdir apache2
-
-cd /opt/graphite/webapp/graphite/
-python manage.py syncdb
-
-cp /opt/graphite/examples/example-graphite-vhost.conf /etc/apache2/vhosts.d/
--> Change to given config in next chapter
-vim /etc/apache2/vhosts.d/example-graphite-vhost.conf
-
-cd Setups path
-rpm -ivh sle-sdk-release-SDK-11.4-1.55.x86_64.rpm
-rpm -ivh sle-sdk-release-11.4-1.55.x86_64.rpm
-
-(maybe not needed if already registered)
-suse_register
-
-zypper in python-Twisted-12.0.0-10.1.x86_64.rpm
-
-sudo /opt/graphite/bin/carbon-cache.py start
-
-chown wwwrun:www /opt/graphite/storage/graphite.db (one of these is not needed)
-chown wwwrun /opt/graphite/storage/ (one of these is not needed)
-chown -R wwwrun /opt/graphite/storage/log/
-
-sudo /usr/sbin/rcapache2 start
-'''
-
-=== Troubles? ===
-
-==== Graphite web app doesn't work ====
-Check logs:
-```
-less /opt/graphite/storage/log/webapp/error.log
-less /var/log/apache2/error_log
-'''
-
-==== Unable to suse_register ====
-https://stackoverflow.com/a/45343158
-
-
-=== Configuration ===
-
-=== local_settings.py===
-/opt/graphite/webapp/graphite/local_settings.py
-```
-TIME_ZONE = 'Europe/Vilnius'
-EMAIL_HOST_USER = 'admin'
-EMAIL_HOST_PASSWORD = 'admin'
-
-'''
-==== Virtual host ====
-
-
-```
-# This configuration assumes the default installation prefix
-# of /opt/graphite/, if you installed graphite somewhere else
-# you will need to change all the occurances of /opt/graphite/
-# in this file to your chosen install location.
-
-
-<IfModule !wsgi_module.c>
-    LoadModule wsgi_module modules/mod_wsgi.so
-</IfModule>
-
-# XXX You need to set this up!
-# Read http://code.google.com/p/modwsgi/wiki/ConfigurationDirectives#WSGISocketPrefix
-WSGISocketPrefix /var/run/apache2/wsgi
-
-<VirtualHost *:80>
-        ServerName graphite
-        DocumentRoot "/opt/graphite/webapp"
-        ErrorLog /opt/graphite/storage/log/webapp/error.log
-        CustomLog /opt/graphite/storage/log/webapp/access.log common
-
-        # I've found that an equal number of processes & threads tends
-        # to show the best performance for Graphite (ymmv).
-        WSGIDaemonProcess graphite processes=5 threads=5 display-name='%{GROUP}' inactivity-timeout=120
-        WSGIProcessGroup graphite
-        WSGIApplicationGroup %{GLOBAL}
-        WSGIImportScript /opt/graphite/conf/graphite.wsgi process-group=graphite application-group=%{GLOBAL}
-
-        # XXX You will need to create this file! There is a graphite.wsgi.example
-        # file in this directory that you can safely use, just copy it to graphite.wgsi
-        WSGIScriptAlias / /opt/graphite/conf/graphite.wsgi
-
-        Alias /content/ /opt/graphite/webapp/content/
-        <Location "/content/">
-                SetHandler None
-                Allow from all
-        </Location>
-
-        # XXX In order for the django admin site media to work you
-        # must change @DJANGO_ROOT@ to be the path to your django
-        # installation, which is probably something like:
-        # /usr/lib/python2.6/site-packages/django
-        Alias /media/ "/usr/local/lib64/python2.6/site-packages/django/contrib/admin/media/"
-        <Location "/media/">
-                SetHandler None
-        </Location>
-
-        # The graphite.wsgi file has to be accessible by apache. It won't
-        # be visible to clients because of the DocumentRoot though.
-        <Directory /opt/graphite/conf/>
-                Allow from all
-        </Directory>
-
-</VirtualHost>
-'''
-
-== Optional ==
-
-
-```
-  612  sudo chown -R wwwrun:wwwrun .
-  613  sudo chgrp -R wwwrun .
-  614  less /etc/group
-  615  sudo chown -R wwwrun:www .
-
-if working on VM add Guest Additions. Toolbar:
-Devices -> Insert Guest Addition CD image
-
-Error: Kernel sources missing
-YaST:
-kernel-source 3.0
-kernel-default-devel
-gcc
-'''
-
-== Presentation ==
-* Show how it looks in real project (litgrid/esb)
-    Show rebar config
-    esb.app.src
-    sys.config
-        lager
-        exometer_core
-        exometer_graphite
-
-* Move to exometer_graphite
-    explain static configuration
-
-
-== Setup Graphite 0.9.10 on SLES 11 SP4 ==
-
-=== Steps ===
-```
-PYTHONPATH=/opt/graphite/webapp django-admin.py syncdb --settings=graphite.settings
+    [program1 | '_']
 '''

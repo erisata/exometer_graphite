@@ -206,7 +206,6 @@ disconnect(State) ->
 %%  Manages connection to a socket and sending message to Graphite.
 %%
 send(0, State) ->
-%    lager:warning("Error sending message. No more retries."),
     {ok, State};
 
 send(Retries, State) ->
@@ -216,12 +215,10 @@ send(Retries, State) ->
                 {ok, AfterSentState} ->
                     {ok, AfterSentState};
                 {error, _Reason} ->
-%                    lager:warning("Error sending message. Reason: ~p", [Reason]),
                     {ok, DisconnectedState} = disconnect(ConnectedState),
                     send(Retries - 1, DisconnectedState)
             end;
         {error, _Reason} ->
-%            lager:warning("Unable to connect... Reason: ~p", [Reason]),
             {ok, DisconnectedState} = disconnect(State),
             send(Retries - 1, DisconnectedState)
     end.

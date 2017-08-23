@@ -17,7 +17,11 @@ __Behaviours:__ [`application`](application.md).
 ## Function Index ##
 
 
-<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#get_env-1">get_env/1</a></td><td></td></tr><tr><td valign="top"><a href="#get_env-2">get_env/2</a></td><td></td></tr><tr><td valign="top"><a href="#name-0">name/0</a></td><td></td></tr><tr><td valign="top"><a href="#priv_dir-0">priv_dir/0</a></td><td></td></tr><tr><td valign="top"><a href="#start-2">start/2</a></td><td></td></tr><tr><td valign="top"><a href="#stop-0">stop/0</a></td><td></td></tr><tr><td valign="top"><a href="#version-0">version/0</a></td><td></td></tr></table>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#get_env-1">get_env/1</a></td><td>
+Get environment variable for this application.</td></tr><tr><td valign="top"><a href="#get_env-2">get_env/2</a></td><td>
+Get environment variable for this application.</td></tr><tr><td valign="top"><a href="#start-2">start/2</a></td><td>
+Start the application.</td></tr><tr><td valign="top"><a href="#stop-1">stop/1</a></td><td>
+Stop the application.</td></tr></table>
 
 
 <a name="functions"></a>
@@ -33,6 +37,8 @@ get_env(Name::atom()) -&gt; undefined | {ok, Value::term()}
 </code></pre>
 <br />
 
+Get environment variable for this application.
+
 <a name="get_env-2"></a>
 
 ### get_env/2 ###
@@ -42,20 +48,7 @@ get_env(Name::atom(), Default::term()) -&gt; Value::term()
 </code></pre>
 <br />
 
-<a name="name-0"></a>
-
-### name/0 ###
-
-<pre><code>
-name() -&gt; atom()
-</code></pre>
-<br />
-
-<a name="priv_dir-0"></a>
-
-### priv_dir/0 ###
-
-`priv_dir() -> any()`
+Get environment variable for this application.
 
 <a name="start-2"></a>
 
@@ -63,15 +56,13 @@ name() -&gt; atom()
 
 `start(StartType, StartArgs) -> any()`
 
-<a name="stop-0"></a>
+Start the application.
 
-### stop/0 ###
+<a name="stop-1"></a>
 
-`stop() -> any()`
+### stop/1 ###
 
-<a name="version-0"></a>
+`stop(State) -> any()`
 
-### version/0 ###
-
-`version() -> any()`
+Stop the application.
 

@@ -41,9 +41,6 @@ itest: compile
 doc:
 	$(REBAR) doc
 
-doc_html:
-	erl -noshell -run edoc_run application "'$(APP_NAME)'" '"."' '[]'
-
 clean: clean-itest
 	$(REBAR) clean
 

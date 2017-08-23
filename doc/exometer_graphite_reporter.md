@@ -5,14 +5,13 @@
 * [Function Index](#index)
 * [Function Details](#functions)
 
-Module for Exometer and Graphite integration.
+Exometer reporter module for sending metrics to a Graphite server.
 
 __Behaviours:__ [`exometer_report`](/home/kazimieras/CODE/erisata/exometer_graphite/deps/exometer_core/doc/exometer_report.md).
 
 <a name="description"></a>
 
 ## Description ##
-Modify `sys.config` to change integration settings.
 <a name="index"></a>
 
 ## Function Index ##
