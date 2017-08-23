@@ -51,3 +51,4 @@ init({}) ->
         [exometer_graphite_subscribers]
     },
     {ok, {{one_for_all, 10, 10000}, [SubscribersSpec]}}.
+
