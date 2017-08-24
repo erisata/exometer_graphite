@@ -44,6 +44,13 @@
 %%% Internal state of the module.
 %%% ============================================================================
 
+-record(message, {
+    probe       :: [atom() | integer()],
+    data_point  :: atom() | integer(),
+    value       :: number(),
+    timestamp   :: integer()
+}).
+
 -record(state, {
     host            :: string(),
     port            :: integer(),
@@ -51,7 +58,7 @@
     socket          :: term() | undefined,
     send_delay      :: integer(),
     retries         :: integer(),
-    messages        :: list()
+    messages        :: [#message{}]
 }).
 
 
@@ -85,7 +92,12 @@ exometer_init(_Opts) ->
 %% Receives probe, datapoint and its value from Exometer.
 %%
 exometer_report(Probe, DataPoint, _Extra, Value, State = #state{messages = Messages}) ->
-    Message = {Probe, DataPoint, Value, erlang:system_time(seconds)},
+    Message = #message{
+        probe       = Probe,
+        data_point  = DataPoint,
+        value       = Value,
+        timestamp   = erlang:system_time(seconds)
+    },
     NewMessages = [Message | Messages],
     NewState = State#state{messages = NewMessages},
     {ok, NewState}.
@@ -252,11 +264,11 @@ send(State = #state{socket = Socket, messages = Messages}) ->
 %%  Path for Graphite metric is joined Exometer Probe and DataPoint.
 %%
 create_pickle_message(Messages) ->
-    Payload = pickle:term_to_pickle(lists:foldl(
-        fun({Probe, DataPoint, Value, Timestamp}, Acc) ->
-            ProbeBinary = erlang:list_to_binary(format_metric_path(Probe, DataPoint)),
-            [{ProbeBinary, {Timestamp, Value}}|Acc]
-        end, [], Messages)),
+    MakePickleMessage = fun(#message{probe = Probe, data_point = DataPoint, value = Value, timestamp = Timestamp}) ->
+        ProbeBinary = erlang:list_to_binary(format_metric_path(Probe, DataPoint)),
+        {ProbeBinary, {Timestamp, Value}}
+    end,
+    Payload = pickle:term_to_pickle(lists:map(MakePickleMessage, Messages)),
     PayloadSize = byte_size(Payload),
     _PickleMessage = <<PayloadSize:32/unsigned-big, Payload/binary>>.
 
@@ -272,9 +284,9 @@ format_metric_path(Probe, DataPoint) ->
 %%  @private
 %%  Converts metric path elements to list (string)
 %%
-metric_elem_to_list(V) when is_atom(V) -> erlang:atom_to_list(V);
+metric_elem_to_list(V) when is_atom(V)    -> erlang:atom_to_list(V);
 metric_elem_to_list(V) when is_integer(V) -> erlang:integer_to_list(V);
-metric_elem_to_list(V) when is_list(V) -> V.
+metric_elem_to_list(V) when is_list(V)    -> V.
 
 
 
@@ -289,26 +301,54 @@ metric_elem_to_list(V) when is_list(V) -> V.
 %%  Check, if pickle message is created properly.
 %%
 create_pickle_message_test_() ->
+    SimpleMessage = #message{
+        probe       = [testZ, cpuUsage],
+        data_point  = value,
+        value       = 0,
+        timestamp   = 1499931464
+    },
     [
-        ?_assertEqual(<<0,0,0,37>>,
-            binary:part(create_pickle_message([{[testZ, cpuUsage], value, 0, 1499931464}]),
-                0, 4)),
-        ?_assertEqual(<<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",
-            74,72,35,103,89,75,0,134,134,101,46>>,
-            create_pickle_message([{[testZ, cpuUsage], value, 0, 1499931464}])),
-        ?_assertEqual(<<0,0,0,46,128,2,93,40,85,29,"exometer_lager.lager.debug.50",
-            74,72,35,103,89,75,0,134,134,101,46>>,
-            create_pickle_message([{[exometer_lager,lager,debug], 50, 0, 1499931464}])),
-        ?_assertEqual(<<0,0,0,28,128,2,93,40,85,11,"20.30.40.50",
-            74,72,35,103,89,75,0,134,134,101,46>>,
-            create_pickle_message([{[20,30,40], 50, 0, 1499931464}])),
-        ?_assertEqual(<<0,0,0,66,128,2,93,40,85,18,"testB.memUsage.min",74,95,37,103,89,75,10,134,
-                134,85,20,"testZ.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
+        {"Check if payload length is calculated properly.", ?_assertEqual(
+            <<0,0,0,37>>,
+            binary:part(create_pickle_message([SimpleMessage]), 0, 4)
+        )},
+        {"Check encoding for a single message.", ?_assertEqual(
+            <<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
+            create_pickle_message([SimpleMessage])
+        )},
+        {"Check if data point can be number.", ?_assertEqual(
+            <<0,0,0,46,128,2,93,40,85,29,"exometer_lager.lager.debug.50",74,72,35,103,89,75,0,134,134,101,46>>,
+            create_pickle_message([#message{
+                probe       = [exometer_lager,lager,debug],
+                data_point  = 50,
+                value       = 0,
+                timestamp   = 1499931464
+            }])
+        )},
+        {"Check if probe name can be numbers.", ?_assertEqual(
+            <<0,0,0,28,128,2,93,40,85,11,"20.30.40.50",74,72,35,103,89,75,0,134,134,101,46>>,
+            create_pickle_message([#message{
+                probe       = [20,30,40],
+                data_point  = 50,
+                value       = 0,
+                timestamp   = 1499931464
+            }])
+        )},
+        {"Check if two messages are encoded properly.", ?_assertEqual(
+            <<
+                0,0,0,66,   % Message header
+                128,2,93,   % Message info
+                40,     85,20, "testZ.cpuUsage.value", 74,72,35,103,89,75,0, 134,   % Message 1
+                134,    85,18, "testB.memUsage.min",   74,95,37,103,89,75,10,134,   % Message 2
+                134,101,46  % Ending
+            >>,
             create_pickle_message(
                 [
-                    {[testZ, cpuUsage], value, 0, 1499931464},
-                    {[testB, memUsage], min, 10, 1499931999}
-                ]))
+                    #message{probe = [testZ, cpuUsage], data_point = value, value = 0,  timestamp = 1499931464},
+                    #message{probe = [testB, memUsage], data_point = min,   value = 10, timestamp = 1499931999}
+                ]
+            )
+        )}
     ].
 
 

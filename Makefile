@@ -28,7 +28,7 @@ compile:
 compile-all:
 	$(REBAR) compile --recursive
 
-check: test
+check: test itest
 
 test: compile
 	mkdir -p logs
