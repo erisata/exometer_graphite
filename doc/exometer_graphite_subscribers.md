@@ -5,21 +5,26 @@
 * [Function Index](#index)
 * [Function Details](#functions)
 
-Responsible for managing subscription configuration given in sys.config.
+Responsible for managing subscription configuration given in `sys.config`.
 
 __Behaviours:__ [`gen_server`](gen_server.md).
 
+<a name="description"></a>
+
+## Description ##
 <a name="index"></a>
 
 ## Function Index ##
 
 
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#code_change-3">code_change/3</a></td><td>
-Unused.</td></tr><tr><td valign="top"><a href="#force_resubscribe-0">force_resubscribe/0</a></td><td></td></tr><tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td>
+Unused.</td></tr><tr><td valign="top"><a href="#force_resubscribe-0">force_resubscribe/0</a></td><td>
+Can be used to initiate subscription update manually.</td></tr><tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td>
 Unused.</td></tr><tr><td valign="top"><a href="#handle_cast-2">handle_cast/2</a></td><td>
 Unused.</td></tr><tr><td valign="top"><a href="#handle_info-2">handle_info/2</a></td><td>
 Updates subscriptions to metrics and continues message sending loop.</td></tr><tr><td valign="top"><a href="#init-1">init/1</a></td><td>
-Sets up subscription configuration loop.</td></tr><tr><td valign="top"><a href="#start_link-0">start_link/0</a></td><td></td></tr><tr><td valign="top"><a href="#terminate-2">terminate/2</a></td><td>
+Sets up subscription configuration loop.</td></tr><tr><td valign="top"><a href="#start_link-0">start_link/0</a></td><td>
+Start a subscription manager.</td></tr><tr><td valign="top"><a href="#terminate-2">terminate/2</a></td><td>
 Unused.</td></tr></table>
 
 
@@ -40,6 +45,8 @@ Unused.
 ### force_resubscribe/0 ###
 
 `force_resubscribe() -> any()`
+
+Can be used to initiate subscription update manually.
 
 <a name="handle_call-3"></a>
 
@@ -78,6 +85,8 @@ Sets up subscription configuration loop.
 ### start_link/0 ###
 
 `start_link() -> any()`
+
+Start a subscription manager.
 
 <a name="terminate-2"></a>
 

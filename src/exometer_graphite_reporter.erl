@@ -19,6 +19,7 @@
 %%%
 -module(exometer_graphite_reporter).
 -behaviour(exometer_report).
+-compile([{parse_transform, lager_transform}]).
 -export([
     exometer_init/1,
     exometer_info/2,
@@ -84,7 +85,7 @@ exometer_init(_Opts) ->
 %% Receives probe, datapoint and its value from Exometer.
 %%
 exometer_report(Probe, DataPoint, _Extra, Value, State = #state{messages = Messages}) ->
-    Message = create_message(Probe, DataPoint, Value),
+    Message = {Probe, DataPoint, Value, erlang:system_time(seconds)},
     NewMessages = [Message | Messages],
     NewState = State#state{messages = NewMessages},
     {ok, NewState}.
@@ -206,6 +207,7 @@ disconnect(State) ->
 %%  Manages connection to a socket and sending message to Graphite.
 %%
 send(0, State) ->
+    lager:warning("Error sending message. No more retries."),
     {ok, State};
 
 send(Retries, State) ->
@@ -214,11 +216,13 @@ send(Retries, State) ->
             case send(ConnectedState) of
                 {ok, AfterSentState} ->
                     {ok, AfterSentState};
-                {error, _Reason} ->
+                {error, Reason} ->
+                    lager:warning("Error sending message to the graphite server, reason: ~p", [Reason]),
                     {ok, DisconnectedState} = disconnect(ConnectedState),
                     send(Retries - 1, DisconnectedState)
             end;
-        {error, _Reason} ->
+        {error, Reason} ->
+            lager:warning("Unable to connect to the graphite server, reason: ~p", [Reason]),
             {ok, DisconnectedState} = disconnect(State),
             send(Retries - 1, DisconnectedState)
     end.
@@ -232,7 +236,8 @@ send(State = #state{socket = Socket, messages = Messages}) ->
         [] ->
             {ok, State};
         _ ->
-            case gen_tcp:send(Socket, lists:reverse(Messages)) of
+            PickleMessage = create_pickle_message(Messages),
+            case gen_tcp:send(Socket, PickleMessage) of
                 ok ->
                     NewState = State#state{messages = []},
                     {ok, NewState};
@@ -243,22 +248,18 @@ send(State = #state{socket = Socket, messages = Messages}) ->
 
 
 %%  @private
-%%  Passes current unix timestamp to create_message/4.
-%%
-create_message(Probe, DataPoint, Value) ->
-    create_message(Probe, DataPoint, Value, erlang:system_time(seconds)).
-
-
-%%  @private
 %%  Creates a Graphite compliant Pickle (protocol 2) message out of Exometer report.
 %%  Path for Graphite metric is joined Exometer Probe and DataPoint.
 %%
-create_message(Probe, DataPoint, Value, Timestamp) ->
-    ProbeBinary = erlang:list_to_binary(format_metric_path(Probe, DataPoint)),
-    Payload = pickle:term_to_pickle([{ProbeBinary, {Timestamp, Value}}]),
+create_pickle_message(Messages) ->
+    Payload = pickle:term_to_pickle(lists:foldl(
+        fun({Probe, DataPoint, Value, Timestamp}, Acc) ->
+            ProbeBinary = erlang:list_to_binary(format_metric_path(Probe, DataPoint)),
+            [{ProbeBinary, {Timestamp, Value}}|Acc]
+        end, [], Messages)),
     PayloadSize = byte_size(Payload),
-    Message = <<PayloadSize:32/unsigned-big, Payload/binary>>,
-    Message.
+    _PickleMessage = <<PayloadSize:32/unsigned-big, Payload/binary>>.
+
 
 
 %%  @private
@@ -287,20 +288,27 @@ metric_elem_to_list(V) when is_list(V) -> V.
 %%
 %%  Check, if pickle message is created properly.
 %%
-create_message_test_() ->
+create_pickle_message_test_() ->
     [
+        ?_assertEqual(<<0,0,0,37>>,
+            binary:part(create_pickle_message([{[testZ, cpuUsage], value, 0, 1499931464}]),
+                0, 4)),
         ?_assertEqual(<<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",
             74,72,35,103,89,75,0,134,134,101,46>>,
-            create_message([testZ, cpuUsage], value, 0, 1499931464)),
-        ?_assertEqual(<<0,0,0,37>>,
-            binary:part(create_message([testZ, cpuUsage], value, 0, 1499931464),
-                0, 4)),
+            create_pickle_message([{[testZ, cpuUsage], value, 0, 1499931464}])),
         ?_assertEqual(<<0,0,0,46,128,2,93,40,85,29,"exometer_lager.lager.debug.50",
             74,72,35,103,89,75,0,134,134,101,46>>,
-            create_message([exometer_lager,lager,debug], 50, 0, 1499931464)),
+            create_pickle_message([{[exometer_lager,lager,debug], 50, 0, 1499931464}])),
         ?_assertEqual(<<0,0,0,28,128,2,93,40,85,11,"20.30.40.50",
             74,72,35,103,89,75,0,134,134,101,46>>,
-            create_message([20,30,40], 50, 0, 1499931464))
+            create_pickle_message([{[20,30,40], 50, 0, 1499931464}])),
+        ?_assertEqual(<<0,0,0,66,128,2,93,40,85,18,"testB.memUsage.min",74,95,37,103,89,75,10,134,
+                134,85,20,"testZ.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
+            create_pickle_message(
+                [
+                    {[testZ, cpuUsage], value, 0, 1499931464},
+                    {[testB, memUsage], min, 10, 1499931999}
+                ]))
     ].
 
 

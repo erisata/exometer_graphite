@@ -100,11 +100,11 @@ name_part() = '_' | atom() | integer()
 ```
     {exometer_graphite, [
         {host, "localhost"},
-        {port, 8096},
+        {port, 2004},
         {connect_timeout, 5000},
         {send_delay, 3000},
         {retries, 2},
-        {resubscription_delay, 1200000},
+        {resubscription_delay, 60000},
         {subscriptions, [
             {
                 [
@@ -115,7 +115,7 @@ name_part() = '_' | atom() | integer()
                 20000
             },
             {
-                [{[program2, store, '_'], '_'}],
+                [{[program2, store, '_'], histogram}],
                 all,
                 10000},
             {
@@ -124,7 +124,7 @@ name_part() = '_' | atom() | integer()
                 4000
             },
             {
-                [{[program4, lager, '_'], '_'}],
+                [{[program4 | '_'], '_'}],
                 all,
                 5000
             }
@@ -141,6 +141,10 @@ name_part() = '_' | atom() | integer()
 
 
 ### <a name="Tips">Tips</a> ###
+
+
+#### <a name="Select_all_metrics">Select all metrics</a> ####
+
 Following name_pattern() will select all available metrics with name starting
 with `program1`:
 
@@ -148,6 +152,12 @@ with `program1`:
     [program1 | '_']
 ```
 
+
+#### <a name="Check_Graphite_server">Check Graphite server</a> ####
+
+To check if metrics are sent to Graphite server, in `test/sys.config` set
+`{port, 2004}` instead of `{port, 8096}` and run `make itest`. Test will fail.
+Metrics `testZ.cpuUsage.value` and `testB.memUsage.min` should appear in Graphite.
 
 
 ## Modules ##

@@ -10,6 +10,8 @@ sent to Carbon (Graphite backend) using Pickle protocol.
 
 
 == Configuration ==
+
+
 This application configured in `sys.config' file.
 
 Configuration items:
@@ -30,7 +32,10 @@ can be created or deleted. Default is 60 seconds.
 * subscriptions - selection of metrics that are wanted to be seen in Graphite.
  Read next section for detail information.
 
+
 == Subscription configuration ==
+
+
  Selecting metrics
 is done using Erlang specification matching.
 
@@ -58,12 +63,18 @@ subscription() = {
                  }
 '''
 
+
 === name_pattern() ===
+
+
 ```
 name_pattern() = [name_part()]
 '''
 
+
 === type() ===
+
+
 Atom '_' is expression for any.
 ```
 type() = '_' | counter | fast_counter | gauge | histogram | spiral | duration | meter
@@ -71,6 +82,8 @@ type() = '_' | counter | fast_counter | gauge | histogram | spiral | duration | 
 
 
 === name_part() ===
+
+
 Atom '_' is expression for any.
 ```
 name_part() = '_' | atom() | integer()
@@ -78,14 +91,16 @@ name_part() = '_' | atom() | integer()
 
 
 == Example configuration ==
+
+
 ```
     {exometer_graphite, [
         {host, "localhost"},
-        {port, 8096},
+        {port, 2004},
         {connect_timeout, 5000},
         {send_delay, 3000},
         {retries, 2},
-        {resubscription_delay, 1200000},
+        {resubscription_delay, 60000},
         {subscriptions, [
             {
                 [
@@ -96,7 +111,7 @@ name_part() = '_' | atom() | integer()
                 20000
             },
             {
-                [{[program2, store, '_'], '_'}],
+                [{[program2, store, '_'], histogram}],
                 all,
                 10000},
             {
@@ -105,7 +120,7 @@ name_part() = '_' | atom() | integer()
                 4000
             },
             {
-                [{[program4, lager, '_'], '_'}],
+                [{[program4 | '_'], '_'}],
                 all,
                 5000
             }
@@ -124,8 +139,19 @@ name_part() = '_' | atom() | integer()
 == Tips ==
 
 
+=== Select all metrics ===
+
+
 Following name_pattern() will select all available metrics with name starting
 with `program1':
 ```
     [program1 | '_']
 '''
+
+
+=== Check Graphite server ===
+
+
+To check if metrics are sent to Graphite server, in `test/sys.config' set
+`{port, 2004}' instead of `{port, 8096}' and run `make itest'. Test will fail.
+Metrics `testZ.cpuUsage.value' and `testB.memUsage.min' should appear in Graphite.

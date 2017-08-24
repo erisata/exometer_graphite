@@ -85,15 +85,17 @@ end_per_testcase(test_static_configuration, _Config) ->
 %%% ============================================================================
 
 %%  @doc
-%%  Tests if message sending to mock server is
+%%  Tests if grouped pickle message sending to mock server is
 %%  successful. Dynamic metric and subscription configuration.
 %%
 test_message_sending(_Config) ->
     Port = application:get_env(?APP, port, ?DEFAULT_TCP_SERVER_MOCK_PORT),
     tcp_server_mock:start(Port, self()),
+    exometer:new([testB, memUsage], histogram),
     exometer:new([testZ, cpuUsage], gauge),
-    exometer_report:subscribe(?REPORTER, [testZ, cpuUsage],
-        value, 1000, []),
+    exometer_report:subscribe(?REPORTER, [testB, memUsage], min, 2000, []),
+    exometer_report:subscribe(?REPORTER, [testZ, cpuUsage], value, 2500, []),
+    exometer:update([testB, memUsage], 10),
     Message = receive
         {received, Data} ->
             lager:debug("Successfully received message."),
@@ -105,22 +107,22 @@ test_message_sending(_Config) ->
             lager:debug("Did NOT receive message"),
             ok
     end,
-    <<Length:(4*8), Info:(6*8), Path:(20*8), Separator:(1*8),
+    <<Length:(4*8), Info:(6*8), Path:(18*8), Separator:(1*8),
         _Timestamp:(4*8), Ending:(6*8), _OtherMsgs/binary>> = Message,
     TimestampNow = binary:encode_unsigned(erlang:system_time(seconds), little),
-    ExpectedMessage = <<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",
-        74, TimestampNow/binary,75,0,134,134,101,46>>,
-    <<ExpectedLength:(4*8), ExpectedInfo:(6*8), ExpectedPath:(20*8),
-        ExpectedSeparator:(1*8), _ExpectedTimestamp:(4*8), ExpectedEnding:(6*8)>>
+    ExpectedMessage = <<0,0,0,66,128,2,93,40,85,18,"testB.memUsage.min",74,TimestampNow/binary,75,10,134,
+        134,85,20,"testZ.cpuUsage.value",74,TimestampNow/binary,75,0,134,134,101,46>>,
+    <<ExpectedLength:(4*8), ExpectedInfo:(6*8), ExpectedPath1:(18*8),
+        ExpectedSeparator1:(1*8), _ExpectedTimestamp1:(4*8), ExpectedEnding1:(6*8),
+        _ExpectedPath2:(20*8),
+        _ExpectedSeparator2:(1*8), _ExpectedTimestamp2:(4*8), _ExpectedEnding2:(6*8)>>
         = ExpectedMessage,
-    %
-    % fix and naming expected
     ExpectedLength = Length,
     ExpectedInfo = Info,
-    ExpectedPath = Path,
-    ExpectedSeparator = Separator,
+    ExpectedPath1 = Path,
+    ExpectedSeparator1 = Separator,
     % Timestamp check ignored
-    ExpectedEnding = Ending.
+    ExpectedEnding1 = Ending.
 
 
 %%  @doc
