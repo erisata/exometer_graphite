@@ -91,10 +91,10 @@ end_per_testcase(test_static_configuration, _Config) ->
 test_message_sending(_Config) ->
     Port = application:get_env(?APP, port, ?DEFAULT_TCP_SERVER_MOCK_PORT),
     tcp_server_mock:start(Port, self()),
-    exometer:new([testB, memUsage], histogram),
     exometer:new([testZ, cpuUsage], gauge),
-    exometer_report:subscribe(?REPORTER, [testB, memUsage], min, 2000, []),
+    exometer:new([testB, memUsage], histogram),
     exometer_report:subscribe(?REPORTER, [testZ, cpuUsage], value, 2500, []),
+    exometer_report:subscribe(?REPORTER, [testB, memUsage], min, 2000, []),
     exometer:update([testB, memUsage], 10),
     Message = receive
         {received, Data} ->
@@ -107,33 +107,8 @@ test_message_sending(_Config) ->
             lager:debug("Did NOT receive message"),
             ok
     end,
-    <<Length:(4*8), Info:(6*8), Path:(18*8), Separator:(1*8),
-        _Timestamp:(4*8), Ending:(6*8), _OtherMsgs/binary>> = Message,
-    TimestampNow = binary:encode_unsigned(erlang:system_time(seconds), little),
-    ExpectedMessage = <<
-        0,0,0,66,   % Message header
-        128,2,93,   % Message start
-        40,     85,20, "testZ.cpuUsage.value", 74,72,35,103,89,75,0, 134,   % Message 1
-        134,    85,18, "testB.memUsage.min",   74,95,37,103,89,75,10,134,   % Message 2
-        134,101,46  % Ending
-    >>,
-%
-%
-%     <<0,0,0,66,128,2,93,40,85,18,"testB.memUsage.min",74,TimestampNow/binary,75,10,134,
-%         134,85,20,"testZ.cpuUsage.value",74,TimestampNow/binary,75,0,134,134,101,46>>,
-    <<
-        ExpectedLength:(4*8),
-        ExpectedInfo:(3*8),
-        _Msg1Start:24, ExpectedPath1:(18*8),  ExpectedSeparator1:(1*8), _ExpectedTimestamp1:(4*8),  ExpectedEnding1:(3*8),
-        _Msg2Start:24, _ExpectedPath2:(20*8), _ExpectedSeparator2:(1*8), _ExpectedTimestamp2:(4*8), _ExpectedEnding2:(3*8),
-        _MsgEnding:24
-    >> = ExpectedMessage,
-    ExpectedLength = Length,
-    ExpectedInfo   = Info,
-    ExpectedPath1 = Path,
-    ExpectedSeparator1 = Separator,
-    % Timestamp check ignored
-    ExpectedEnding1 = Ending.
+    <<"testZ.cpuUsage.value">> = binary:part(Message, 10, 20),
+    <<"testB.memUsage.min">> = binary:part(Message, 41, 18).
 
 
 %%  @doc
