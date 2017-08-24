@@ -316,7 +316,7 @@ create_pickle_message_test_() ->
             <<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
             create_pickle_message([SimpleMessage])
         )},
-        {"Check if data point can be number.", ?_assertEqual(
+        {"Check if data point can be a number.", ?_assertEqual(
             <<0,0,0,46,128,2,93,40,85,29,"exometer_lager.lager.debug.50",74,72,35,103,89,75,0,134,134,101,46>>,
             create_pickle_message([#message{
                 probe       = [exometer_lager,lager,debug],
@@ -338,9 +338,17 @@ create_pickle_message_test_() ->
             <<
                 0,0,0,66,   % Message header
                 128,2,93,   % Message info
-                40,     85,20, "testZ.cpuUsage.value", 74,72,35,103,89,75,0, 134,   % Message 1
-                134,    85,18, "testB.memUsage.min",   74,95,37,103,89,75,10,134,   % Message 2
-                134,101,46  % Ending
+                40,     85,20, "testZ.cpuUsage.value", 74,   % Message 1
+                72,35,103,89,   % Message1 timestamp
+                75,
+                0,              % Message1 value
+                134,
+                134,    85,18, "testB.memUsage.min",   74,   % Message2
+                95,37,103,89,   % Message2 timestamp
+                75,
+                10,             % Message2 value
+                134,
+                134,101,46  % Message ending
             >>,
             create_pickle_message(
                 [

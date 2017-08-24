@@ -107,8 +107,8 @@ test_message_sending(_Config) ->
             lager:debug("Did NOT receive message"),
             ok
     end,
-    <<"testZ.cpuUsage.value">> = binary:part(Message, 10, 20),
-    <<"testB.memUsage.min">> = binary:part(Message, 41, 18).
+    nomatch =/= binary:match(Message, <<"testZ.cpuUsage.value">>),
+    nomatch =/= binary:match(Message, <<"testB.memUsage.min">>).
 
 
 %%  @doc
