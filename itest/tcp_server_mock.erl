@@ -38,7 +38,7 @@ start(ListenPort, From) ->
             {ok, Port} = inet:port(ListenSocket),
             Port;
         {error,Reason} ->
-            lager:debug("Could not open listening socket."),
+            lager:debug("Could not open listening socket, Reason: ~p", [Reason]),
             {error,Reason}
     end.
 
@@ -57,10 +57,12 @@ server(ListenSocket, From) ->
             loop(AcceptedSocket, From);
         {error, timeout} ->
             lager:warning("Timeout: no connection in 5 seconds."),
-            ok;
+            {error, timeout};
         _Other ->
             ok
-    end.
+    end,
+    ok = gen_tcp:close(ListenSocket),
+    ok.
 
 
 %% @private

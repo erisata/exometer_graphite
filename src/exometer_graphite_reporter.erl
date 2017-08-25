@@ -38,6 +38,7 @@
 -define(DEFAULT_CONNECT_TIMEOUT, 5000).
 -define(DEFAULT_SEND_DELAY, 10000).
 -define(DEFAULT_RETRIES, 2).
+-define(DEFAULT_PATH_PREFIX, '$node').
 
 
 %%% ============================================================================
@@ -55,9 +56,10 @@
     host            :: string(),
     port            :: integer(),
     connect_timeout :: integer(),
-    socket          :: term() | undefined,
     send_delay      :: integer(),
     retries         :: integer(),
+    path_prefix     :: list(),
+    socket          :: term() | undefined,
     messages        :: [#message{}]
 }).
 
@@ -76,12 +78,22 @@ exometer_init(_Opts) ->
     ConnectTimeout = exometer_graphite_app:get_env(connect_timeout, ?DEFAULT_CONNECT_TIMEOUT),
     SendDelay = exometer_graphite_app:get_env(send_delay, ?DEFAULT_SEND_DELAY),
     Retries = exometer_graphite_app:get_env(retries, ?DEFAULT_RETRIES),
+    RawPathPrefix = exometer_graphite_app:get_env(path_prefix, ?DEFAULT_PATH_PREFIX),
+    PathPrefix = lists:map(fun(Dir) ->
+        case Dir of
+            '$node' ->
+                erlang:node();
+            Dir2 ->
+                Dir2
+        end
+    end, RawPathPrefix),
     State = #state{
         host = Host,
         port = Port,
         connect_timeout = ConnectTimeout,
         send_delay = SendDelay,
         retries = Retries,
+        path_prefix = PathPrefix,
         messages = []
     },
     erlang:send_after(SendDelay, self(), send),
@@ -91,9 +103,13 @@ exometer_init(_Opts) ->
 %% @doc
 %% Receives probe, datapoint and its value from Exometer.
 %%
-exometer_report(Probe, DataPoint, _Extra, Value, State = #state{messages = Messages}) ->
+exometer_report(Probe, DataPoint, _Extra, Value, State) ->
+    #state{
+        path_prefix = PathPrefix,
+        messages = Messages
+    } = State,
     Message = #message{
-        probe       = Probe,
+        probe       = lists:append(PathPrefix, Probe),
         data_point  = DataPoint,
         value       = Value,
         timestamp   = erlang:system_time(seconds)
