@@ -29,12 +29,13 @@ number of retries when sending messages to Carbon on the same socket.
 Default is 2.
 * resubscription_delay - time interval of renewing subscriptions. New metrics
 can be created or deleted. Default is 60 seconds.
+* path_prefix - adds prefix for metrics that are sent to graphite. To automatically 
+get node@host, use atom '$node' which provides erlang:node/0 value.
 * subscriptions - selection of metrics that are wanted to be seen in Graphite. 
 Read next section for detail information.
 
 
 ### <a name="Subscription_configuration">Subscription configuration</a> ###
-
 
 Selecting metrics
 is done using Erlang specification matching.
@@ -70,14 +71,12 @@ subscription() = {
 
 #### <a name="name_pattern()">name_pattern()</a> ####
 
-
 ```
 name_pattern() = [name_part()]
 ```
 
 
 #### <a name="type()">type()</a> ####
-
 Atom '_' is expression for any.
 
 ```
@@ -86,7 +85,6 @@ type() = '_' | counter | fast_counter | gauge | histogram | spiral | duration | 
 
 
 #### <a name="name_part()">name_part()</a> ####
-
 Atom '_' is expression for any.
 
 ```
@@ -96,7 +94,6 @@ name_part() = '_' | atom() | integer()
 
 ### <a name="Example_configuration">Example configuration</a> ###
 
-
 ```
     {exometer_graphite, [
         {host, "localhost"},
@@ -105,6 +102,7 @@ name_part() = '_' | atom() | integer()
         {send_delay, 3000},
         {retries, 2},
         {resubscription_delay, 60000},
+        {path_prefix, [server1, '$node']},
         {subscriptions, [
             {
                 [
@@ -144,7 +142,6 @@ name_part() = '_' | atom() | integer()
 
 
 #### <a name="Select_all_metrics">Select all metrics</a> ####
-
 Following name_pattern() will select all available metrics with name starting
 with `program1`:
 
@@ -158,6 +155,13 @@ with `program1`:
 To check if metrics are sent to Graphite server, in `test/sys.config` set
 `{port, 2004}` instead of `{port, 8096}` and run `make itest`. Test will fail.
 Metrics `testZ.cpuUsage.value` and `testB.memUsage.min` should appear in Graphite.
+
+To remove these metrics run following command:
+
+```
+sudo rm -r /var/lib/graphite/whisper/server1/
+```
+
 
 
 ## Modules ##

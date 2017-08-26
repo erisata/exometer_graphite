@@ -15,7 +15,7 @@
 %\--------------------------------------------------------------------
 
 %%%
-%%% Common Tests for `exometer_graphite_reporter` module.
+%%% Common Tests for `exometer_graphite` application.
 %%%
 -module(exometer_graphite_SUITE).
 -compile([{parse_transform, lager_transform}]).
@@ -85,13 +85,12 @@ end_per_testcase(test_static_configuration, _Config) ->
 %%% ============================================================================
 
 %%  @doc
-%%  Tests if grouped pickle message sending to mock server is
-%%  successful. Dynamic metric and subscription configuration.
+%%  Check, if grouped pickle message sending to mock server is
+%%  successful. Using dynamic metric and subscription configuration.
 %%
 test_message_sending(_Config) ->
     Port = application:get_env(?APP, port, ?DEFAULT_TCP_SERVER_MOCK_PORT),
     tcp_server_mock:start(Port, self()),
-    timer:sleep(100),
     exometer:new([testZ, cpuUsage], gauge),
     exometer:new([testB, memUsage], histogram),
     exometer_report:subscribe(?REPORTER, [testZ, cpuUsage], value, 2100, []),
@@ -99,7 +98,6 @@ test_message_sending(_Config) ->
     exometer:update([testB, memUsage], 10),
     Message = receive
         {received, Data} ->
-            lager:debug("Successfully received message."),
             Data;
         _Other ->
             lager:debug("Unexpected message.")
@@ -110,13 +108,15 @@ test_message_sending(_Config) ->
     end,
     %
     % node@host differs from system to system
-    % <<"server1.*@*.testZ.cpuUsage.value">>
-    {_, _} = binary:match(Message, <<"server1.">>),
-    {_, _} = binary:match(Message, <<"@">>),
-    {_, _} = binary:match(Message, <<".testZ.cpuUsage.value">>),
-    {_, _} = binary:match(Message, <<"server1.">>),
-    {_, _} = binary:match(Message, <<"@">>),
-    {_, _} = binary:match(Message, <<".testB.memUsage.min">>).
+    % checking for <<"server1.*@*.testZ.cpuUsage.value">>
+    {Metric1Start1, _} = binary:match(Message, <<"server1.">>),
+    {Metric1Start2, _} = binary:match(Message, <<".testZ.cpuUsage.value">>),
+    {_, _} = binary:match(Message, <<"@">>, [{scope, {Metric1Start1, Metric1Start2 - Metric1Start1}}]),
+    %
+    % checking for <<"server1.*@*.testB.memUsage.min">>
+    {Metric2Start1, _} = binary:match(Message, <<"server1.">>),
+    {Metric2Start2, _} = binary:match(Message, <<".testB.memUsage.min">>),
+    {_, _} = binary:match(Message, <<"@">>, [{scope, {Metric2Start1, Metric2Start2 - Metric2Start1}}]).
 
 
 %%  @doc
@@ -133,8 +133,6 @@ test_static_configuration(_Config) ->
     %
     % Forcing resubscribe, though it would be automatic resubscription by interval.
     ok = exometer_graphite_subscribers:force_resubscribe(),
-    timer:sleep(200),
-    % sort, ActualSubs remove
     ExpectedSubs = [
         {[testEL,lager,debug],min,4000,[]},
         {[testEL,lager,debug],mean,4000,[]},
@@ -161,7 +159,6 @@ test_static_configuration(_Config) ->
     exometer:new([eproc_core, store, attachment_delete], spiral),
     exometer:delete([eproc_core, lager, warning]),
     ok = exometer_graphite_subscribers:force_resubscribe(),
-    timer:sleep(200),
     %
     % If same subscription is added to exometer twice, only one will be shown in
     % exometer_report:list_subscriptions, though actually there would be two.

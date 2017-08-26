@@ -15,10 +15,9 @@
 %\--------------------------------------------------------------------
 
 %%% @doc
-%%% Used to mock a TCP server. For example, Graphite server
+%%% Used to mock a TCP server, which receives single message.
 %%%
 -module(tcp_server_mock).
--compile([{parse_transform, lager_transform}]).
 -export([
     start/2
 ]).
@@ -27,20 +26,11 @@
 %%% Public API.
 %%% ============================================================================
 
-%% @doc
-%% Starts a mock server on specific port.
+%%  @doc
+%%  Starts a mock server on specific port.
 %%
-start(ListenPort, From) ->
-    case gen_tcp:listen(ListenPort, [{active, true}, binary]) of
-        {ok, ListenSocket} ->
-            lager:debug("Listening socket opened."),
-            spawn(fun() -> server(ListenSocket, From) end),
-            {ok, Port} = inet:port(ListenSocket),
-            Port;
-        {error,Reason} ->
-            lager:debug("Could not open listening socket."),
-            {error,Reason}
-    end.
+start(LPort, From) ->
+    spawn(fun() -> server(LPort, From) end).
 
 
 
@@ -48,34 +38,14 @@ start(ListenPort, From) ->
 %%% Internal functions.
 %%% ============================================================================
 
-%% @private
-%% Waits for TCP connection.
+%%  @private
+%%  Receives single message and sends it to a process which started the mock server.
 %%
-server(ListenSocket, From) ->
-    case gen_tcp:accept(ListenSocket, 5000) of
-        {ok, AcceptedSocket} ->
-            loop(AcceptedSocket, From),
-            ok = gen_tcp:close(AcceptedSocket);
-        {error, timeout} ->
-            lager:warning("Timeout: no connection in 5 seconds."),
-            ok;
-        _Other ->
-            ok
-    end,
-    ok = gen_tcp:close(ListenSocket).
-
-
-
-%% @private
-%% Receives data sent via TCP.
-%%
-loop(AcceptedSocket, From) ->
-    receive
-        {tcp, AcceptedSocket, Data} ->
-            % Could reply using gen_tcp:send(S,Answer),
-            From ! {received, Data},
-            % Receives only single message
-            loop(AcceptedSocket, From);
-        {tcp_closed, AcceptedSocket} ->
-            ok
-    end.
+server(LPort, From) ->
+    {ok, LSock} = gen_tcp:listen(LPort, [{reuseaddr, true},{active, false}, binary]),
+    {ok, Sock} = gen_tcp:accept(LSock, 4000),
+    {ok, Packet} = gen_tcp:recv(Sock, 0, 4000),
+    From ! {received, Packet},
+    ok = gen_tcp:close(LSock),
+    ok = gen_tcp:close(Sock),
+    exit(self(), normal).

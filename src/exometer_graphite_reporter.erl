@@ -76,7 +76,6 @@ exometer_init(_Opts) ->
             _ -> Dir
         end
     end, RawPathPrefix),
-    lager:debug("PathPrefix: ~p", [PathPrefix]),
     State = #state{
         path_prefix = PathPrefix,
         messages = []
