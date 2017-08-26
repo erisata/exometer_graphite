@@ -91,9 +91,10 @@ end_per_testcase(test_static_configuration, _Config) ->
 test_message_sending(_Config) ->
     Port = application:get_env(?APP, port, ?DEFAULT_TCP_SERVER_MOCK_PORT),
     tcp_server_mock:start(Port, self()),
+    timer:sleep(100),
     exometer:new([testZ, cpuUsage], gauge),
     exometer:new([testB, memUsage], histogram),
-    exometer_report:subscribe(?REPORTER, [testZ, cpuUsage], value, 2500, []),
+    exometer_report:subscribe(?REPORTER, [testZ, cpuUsage], value, 2100, []),
     exometer_report:subscribe(?REPORTER, [testB, memUsage], min, 2000, []),
     exometer:update([testB, memUsage], 10),
     Message = receive
@@ -107,8 +108,15 @@ test_message_sending(_Config) ->
             lager:debug("Did NOT receive message"),
             ok
     end,
-    nomatch =/= binary:match(Message, <<"testZ.cpuUsage.value">>),
-    nomatch =/= binary:match(Message, <<"testB.memUsage.min">>).
+    %
+    % node@host differs from system to system
+    % <<"server1.*@*.testZ.cpuUsage.value">>
+    {_, _} = binary:match(Message, <<"server1.">>),
+    {_, _} = binary:match(Message, <<"@">>),
+    {_, _} = binary:match(Message, <<".testZ.cpuUsage.value">>),
+    {_, _} = binary:match(Message, <<"server1.">>),
+    {_, _} = binary:match(Message, <<"@">>),
+    {_, _} = binary:match(Message, <<".testB.memUsage.min">>).
 
 
 %%  @doc

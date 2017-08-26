@@ -38,7 +38,7 @@
 -define(DEFAULT_CONNECT_TIMEOUT, 5000).
 -define(DEFAULT_SEND_DELAY, 10000).
 -define(DEFAULT_RETRIES, 2).
--define(DEFAULT_PATH_PREFIX, '$node').
+-define(DEFAULT_PATH_PREFIX, ['$node']).
 
 
 %%% ============================================================================
@@ -53,12 +53,7 @@
 }).
 
 -record(state, {
-    host            :: string(),
-    port            :: integer(),
-    connect_timeout :: integer(),
-    send_delay      :: integer(),
-    retries         :: integer(),
-    path_prefix     :: list(),
+    path_prefix     :: [atom() | integer() | '$node'],
     socket          :: term() | undefined,
     messages        :: [#message{}]
 }).
@@ -73,26 +68,16 @@
 %% Initializes the reporter and starts message sending loop.
 %%
 exometer_init(_Opts) ->
-    Host = exometer_graphite_app:get_env(host, ?DEFAULT_HOST),
-    Port = exometer_graphite_app:get_env(port, ?DEFAULT_PORT),
-    ConnectTimeout = exometer_graphite_app:get_env(connect_timeout, ?DEFAULT_CONNECT_TIMEOUT),
     SendDelay = exometer_graphite_app:get_env(send_delay, ?DEFAULT_SEND_DELAY),
-    Retries = exometer_graphite_app:get_env(retries, ?DEFAULT_RETRIES),
     RawPathPrefix = exometer_graphite_app:get_env(path_prefix, ?DEFAULT_PATH_PREFIX),
     PathPrefix = lists:map(fun(Dir) ->
         case Dir of
-            '$node' ->
-                erlang:node();
-            Dir2 ->
-                Dir2
+            '$node' -> erlang:node();
+            _ -> Dir
         end
     end, RawPathPrefix),
+    lager:debug("PathPrefix: ~p", [PathPrefix]),
     State = #state{
-        host = Host,
-        port = Port,
-        connect_timeout = ConnectTimeout,
-        send_delay = SendDelay,
-        retries = Retries,
         path_prefix = PathPrefix,
         messages = []
     },
@@ -103,13 +88,9 @@ exometer_init(_Opts) ->
 %% @doc
 %% Receives probe, datapoint and its value from Exometer.
 %%
-exometer_report(Probe, DataPoint, _Extra, Value, State) ->
-    #state{
-        path_prefix = PathPrefix,
-        messages = Messages
-    } = State,
+exometer_report(Probe, DataPoint, _Extra, Value, State = #state{messages = Messages}) ->
     Message = #message{
-        probe       = lists:append(PathPrefix, Probe),
+        probe       = Probe,
         data_point  = DataPoint,
         value       = Value,
         timestamp   = erlang:system_time(seconds)
@@ -151,11 +132,9 @@ exometer_cast(_Unknown, State) ->
 %% Sends collected messages to graphite and continues message sending loop.
 %%
 exometer_info(send, State) ->
-    #state{
-        send_delay = SendDelay,
-        retries = Retries
-    } = State,
+    SendDelay = exometer_graphite_app:get_env(send_delay, ?DEFAULT_SEND_DELAY),
     erlang:send_after(SendDelay, self(), send),
+    Retries = exometer_graphite_app:get_env(retries, ?DEFAULT_RETRIES),
     {ok, _NewState} = send(Retries, State);
 
 
@@ -196,11 +175,9 @@ exometer_terminate(_, _) ->
 %%  Ensures that state has a socket.
 %%
 ensure_connection(State = #state{socket = undefined}) ->
-    #state{
-        host     = Host,
-        port     = Port,
-        connect_timeout = ConnectTimeout
-    } = State,
+    Host = exometer_graphite_app:get_env(host, ?DEFAULT_HOST),
+    Port = exometer_graphite_app:get_env(port, ?DEFAULT_PORT),
+    ConnectTimeout = exometer_graphite_app:get_env(connect_timeout, ?DEFAULT_CONNECT_TIMEOUT),
     case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectTimeout) of
         {ok, NewSocket} ->
             NewState = State#state{socket = NewSocket},
@@ -259,12 +236,17 @@ send(Retries, State) ->
 %%  @private
 %%  Sends buffered messages to Graphite
 %%
-send(State = #state{socket = Socket, messages = Messages}) ->
+send(State) ->
+    #state{
+        path_prefix = PathPrefix,
+        socket = Socket,
+        messages = Messages
+    } = State,
     case Messages of
         [] ->
             {ok, State};
         _ ->
-            PickleMessage = create_pickle_message(Messages),
+            PickleMessage = create_pickle_message(Messages, PathPrefix),
             case gen_tcp:send(Socket, PickleMessage) of
                 ok ->
                     NewState = State#state{messages = []},
@@ -279,9 +261,10 @@ send(State = #state{socket = Socket, messages = Messages}) ->
 %%  Creates a Graphite compliant Pickle (protocol 2) message out of Exometer report.
 %%  Path for Graphite metric is joined Exometer Probe and DataPoint.
 %%
-create_pickle_message(Messages) ->
+create_pickle_message(Messages, PathPrefix) ->
     MakePickleMessage = fun(#message{probe = Probe, data_point = DataPoint, value = Value, timestamp = Timestamp}) ->
-        ProbeBinary = erlang:list_to_binary(format_metric_path(Probe, DataPoint)),
+        FullProbe = lists:append(PathPrefix, Probe),
+        ProbeBinary = erlang:list_to_binary(format_metric_path(FullProbe, DataPoint)),
         {ProbeBinary, {Timestamp, Value}}
     end,
     Payload = pickle:term_to_pickle(lists:map(MakePickleMessage, Messages)),
@@ -326,11 +309,11 @@ create_pickle_message_test_() ->
     [
         {"Check if payload length is calculated properly.", ?_assertEqual(
             <<0,0,0,37>>,
-            binary:part(create_pickle_message([SimpleMessage]), 0, 4)
+            binary:part(create_pickle_message([SimpleMessage], []), 0, 4)
         )},
-        {"Check encoding for a single message.", ?_assertEqual(
-            <<0,0,0,37,128,2,93,40,85,20,"testZ.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
-            create_pickle_message([SimpleMessage])
+        {"Check encoding for a single message and appending of a path prefix.", ?_assertEqual(
+            <<0,0,0,51,128,2,93,40,85,34,"server1.node1.testZ.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
+            create_pickle_message([SimpleMessage], [server1, node1])
         )},
         {"Check if data point can be a number.", ?_assertEqual(
             <<0,0,0,46,128,2,93,40,85,29,"exometer_lager.lager.debug.50",74,72,35,103,89,75,0,134,134,101,46>>,
@@ -339,7 +322,7 @@ create_pickle_message_test_() ->
                 data_point  = 50,
                 value       = 0,
                 timestamp   = 1499931464
-            }])
+            }], [])
         )},
         {"Check if probe name can be numbers.", ?_assertEqual(
             <<0,0,0,28,128,2,93,40,85,11,"20.30.40.50",74,72,35,103,89,75,0,134,134,101,46>>,
@@ -348,7 +331,7 @@ create_pickle_message_test_() ->
                 data_point  = 50,
                 value       = 0,
                 timestamp   = 1499931464
-            }])
+            }], [])
         )},
         {"Check if two messages are encoded properly.", ?_assertEqual(
             <<
@@ -370,7 +353,7 @@ create_pickle_message_test_() ->
                 [
                     #message{probe = [testZ, cpuUsage], data_point = value, value = 0,  timestamp = 1499931464},
                     #message{probe = [testB, memUsage], data_point = min,   value = 10, timestamp = 1499931999}
-                ]
+                ], []
             )
         )}
     ].
