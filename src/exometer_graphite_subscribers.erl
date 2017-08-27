@@ -155,10 +155,10 @@ form_required_subs() ->
 %%  To understand better, I suggest drawing set diagram of ReqSubs, AlreadySubs,
 %%  WasteSubs.
 %%
-subscribe(RequiredSubs) ->
+subscribe(RequiredSubs) ->  % TODO: Should be called on timer.
     OldSubs = lists:flatten([
         {OldMetric, Datapoint}
-        || {OldMetric, Datapoint, _Interval, _Extra} <- exometer_report:list_subscriptions(?REPORTER)
+        || {OldMetric, Datapoint, _Interval, _Extra} <- exometer_report:list_subscriptions(?REPORTER) % TODO: By reporter PID or Module???
     ]),
     AlreadySubs = sub_intersection(RequiredSubs, OldSubs),
     NewSubs = RequiredSubs -- AlreadySubs,
