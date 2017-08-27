@@ -15,7 +15,7 @@
 %\--------------------------------------------------------------------
 
 %%%
-%%% Common Tests for `exometer_graphite` application.
+%%% Common Tests for `exometer_graphite' application.
 %%%
 -module(exometer_graphite_SUITE).
 -compile([{parse_transform, lager_transform}]).
@@ -34,7 +34,7 @@
 -define(REPORTER, exometer_graphite_reporter).
 
 %%% ============================================================================
-%%% Callbacks for `common_test`
+%%% Callbacks for `common_test'
 %%% ============================================================================
 
 %%  @doc
@@ -90,7 +90,7 @@ end_per_testcase(test_static_configuration, _Config) ->
 %%
 test_message_sending(_Config) ->
     Port = application:get_env(?APP, port, ?DEFAULT_TCP_SERVER_MOCK_PORT),
-    tcp_server_mock:start(Port, self()),
+    {ok, MockPid} = graphite_server_mock:start(Port, self()),
     exometer:new([testZ, cpuUsage], gauge),
     exometer:new([testB, memUsage], histogram),
     exometer_report:subscribe(?REPORTER, [testZ, cpuUsage], value, 2100, []),
@@ -116,7 +116,9 @@ test_message_sending(_Config) ->
     % checking for <<"server1.*@*.testB.memUsage.min">>
     {Metric2Start1, _} = binary:match(Message, <<"server1.">>),
     {Metric2Start2, _} = binary:match(Message, <<".testB.memUsage.min">>),
-    {_, _} = binary:match(Message, <<"@">>, [{scope, {Metric2Start1, Metric2Start2 - Metric2Start1}}]).
+    {_, _} = binary:match(Message, <<"@">>, [{scope, {Metric2Start1, Metric2Start2 - Metric2Start1}}]),
+    ok = graphite_server_mock:stop(MockPid),
+    ok.
 
 
 %%  @doc
@@ -185,3 +187,5 @@ test_static_configuration(_Config) ->
         % {[eproc_core,lager,warning],mean,20000,[]},           %% Deleted
         % {[eproc_core,lager,warning],max,20000,[]}],           %% Deleted
     NewerExpectedSubs = exometer_report:list_subscriptions(?REPORTER).
+
+

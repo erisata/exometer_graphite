@@ -17,10 +17,9 @@
 %%% @doc
 %%% Used to mock a TCP server, which receives single message.
 %%%
--module(tcp_server_mock).
--export([
-    start/2
-]).
+-module(graphite_server_mock).
+-compile([{parse_transform, lager_transform}]).
+-export([start/2, stop/1]).
 
 %%% ============================================================================
 %%% Public API.
@@ -30,8 +29,21 @@
 %%  Starts a mock server on specific port.
 %%
 start(LPort, From) ->
-    spawn(fun() -> server(LPort, From) end).
+    Pid = spawn_link(fun() -> server(LPort, From) end),
+    {ok, Pid}.
 
+
+%%  @doc
+%%  Stop the mock server.
+%%
+stop(Pid) ->
+    Pid ! stop,
+    receive
+        stopped         -> ok;
+        {error, Reason} -> {error, Reason}
+    after
+        5000 -> {error, timeout}
+    end.
 
 
 %%% ============================================================================
@@ -42,10 +54,27 @@ start(LPort, From) ->
 %%  Receives single message and sends it to a process which started the mock server.
 %%
 server(LPort, From) ->
-    {ok, LSock} = gen_tcp:listen(LPort, [{reuseaddr, true},{active, false}, binary]),
+    {ok, LSock} = gen_tcp:listen(LPort, [{active, true}, {reuseaddr, true}, binary]),
     {ok, Sock} = gen_tcp:accept(LSock, 4000),
-    {ok, Packet} = gen_tcp:recv(Sock, 0, 4000),
-    From ! {received, Packet},
-    ok = gen_tcp:close(LSock),
-    ok = gen_tcp:close(Sock),
-    exit(self(), normal).
+    receive
+        {tcp, Sock, Packet} ->
+            From ! {received, Packet},
+            receive
+                stop ->
+                    ok = gen_tcp:shutdown(Sock, write),
+                    receive
+                        {tcp_closed, Sock} ->
+                            ok = gen_tcp:close(Sock),
+                            ok = gen_tcp:close(LSock),
+                            From ! stopped
+                    after
+                        5000 ->
+                            From ! {error, close_timeout}
+                    end
+            end
+        after
+            5000 ->
+                {error, timeout}
+    end.
+
+
