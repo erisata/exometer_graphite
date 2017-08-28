@@ -19,7 +19,7 @@ __Behaviours:__ [`gen_server`](gen_server.md).
 
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#code_change-3">code_change/3</a></td><td>
 Unused.</td></tr><tr><td valign="top"><a href="#force_resubscribe-0">force_resubscribe/0</a></td><td>
-Can be used to initiate subscription update manually.</td></tr><tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td>
+Used to start resubscription manually.</td></tr><tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td>
 Unused.</td></tr><tr><td valign="top"><a href="#handle_cast-2">handle_cast/2</a></td><td>
 Unused.</td></tr><tr><td valign="top"><a href="#handle_info-2">handle_info/2</a></td><td>
 Updates subscriptions to metrics and continues message sending loop.</td></tr><tr><td valign="top"><a href="#init-1">init/1</a></td><td>
@@ -46,7 +46,7 @@ Unused.
 
 `force_resubscribe() -> any()`
 
-Can be used to initiate subscription update manually.
+Used to start resubscription manually.
 
 <a name="handle_call-3"></a>
 

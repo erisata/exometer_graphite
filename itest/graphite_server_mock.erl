@@ -54,27 +54,32 @@ stop(Pid) ->
 %%  Receives single message and sends it to a process which started the mock server.
 %%
 server(LPort, From) ->
-    {ok, LSock} = gen_tcp:listen(LPort, [{active, true}, {reuseaddr, true}, binary]),
-    {ok, Sock} = gen_tcp:accept(LSock, 4000),
-    receive
-        {tcp, Sock, Packet} ->
-            From ! {received, Packet},
+    case gen_tcp:listen(LPort, [{active, true}, {reuseaddr, true}, binary]) of
+        {ok, LSock} ->
+            {ok, Sock} = gen_tcp:accept(LSock, 4000),
             receive
-                stop ->
-                    ok = gen_tcp:shutdown(Sock, write),
+                {tcp, Sock, Packet} ->
+                    From ! {received, Packet},
                     receive
-                        {tcp_closed, Sock} ->
-                            ok = gen_tcp:close(Sock),
-                            ok = gen_tcp:close(LSock),
-                            From ! stopped
-                    after
-                        5000 ->
-                            From ! {error, close_timeout}
+                        stop ->
+                            ok = gen_tcp:shutdown(Sock, write),
+                            receive
+                                {tcp_closed, Sock} ->
+                                    ok = gen_tcp:close(Sock),
+                                    ok = gen_tcp:close(LSock),
+                                    From ! stopped
+                            after
+                                5000 ->
+                                    From ! {error, close_timeout}
+                            end
                     end
-            end
-        after
-            5000 ->
-                {error, timeout}
+            after
+                5000 ->
+                    {error, timeout}
+            end;
+        {error, Reason} ->
+            lager:error("Error opening listening socket. Reason: ~p", [Reason]),
+            {error, Reason}
     end.
 
 

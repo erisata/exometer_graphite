@@ -37,16 +37,6 @@
 
 
 %%% ============================================================================
-%%% Internal state of the module.
-%%% ============================================================================
-
--record(state, {
-    resub_delay :: integer()
-}).
-
-
-
-%%% ============================================================================
 %%% API functions.
 %%% ============================================================================
 
@@ -58,7 +48,7 @@ start_link() ->
 
 
 %%  @doc
-%%  Can be used to initiate subscription update manually.
+%%  Used to start resubscription manually.
 %%
 force_resubscribe() ->
     RequiredSubs = form_required_subs(),
@@ -75,10 +65,8 @@ force_resubscribe() ->
 %% Sets up subscription configuration loop.
 %%
 init(_) ->
-    ResubDelay = exometer_graphite_app:get_env(resub_delay, ?DEFAULT_RESUB_DELAY),
-    State = #state{resub_delay = ResubDelay},
     self() ! update,
-    {ok, State}.
+    {ok, []}.
 
 
 %% @doc
@@ -98,8 +86,11 @@ handle_cast(_Unknown, State) ->
 %% @doc
 %% Updates subscriptions to metrics and continues message sending loop.
 %%
-handle_info(update, State = #state{resub_delay = ResubDelay}) ->
+handle_info(update, State) ->
+    ResubDelay = exometer_graphite_app:get_env(resub_delay, ?DEFAULT_RESUB_DELAY),
     erlang:send_after(ResubDelay, self(), update),
+    RequiredSubs = form_required_subs(),
+    subscribe(RequiredSubs),
     {noreply, State};
 
 handle_info(_Unknown, State) ->
@@ -155,10 +146,10 @@ form_required_subs() ->
 %%  To understand better, I suggest drawing set diagram of ReqSubs, AlreadySubs,
 %%  WasteSubs.
 %%
-subscribe(RequiredSubs) ->  % TODO: Should be called on timer.
+subscribe(RequiredSubs) ->
     OldSubs = lists:flatten([
         {OldMetric, Datapoint}
-        || {OldMetric, Datapoint, _Interval, _Extra} <- exometer_report:list_subscriptions(?REPORTER) % TODO: By reporter PID or Module???
+        || {OldMetric, Datapoint, _Interval, _Extra} <- exometer_report:list_subscriptions(?REPORTER)
     ]),
     AlreadySubs = sub_intersection(RequiredSubs, OldSubs),
     NewSubs = RequiredSubs -- AlreadySubs,

@@ -27,7 +27,7 @@ the next loop. Default is 5 seconds.
 send_delay interval loop.
 number of retries when sending messages to Carbon on the same socket.
 Default is 2.
-* resubscription_delay - time interval of renewing subscriptions. New metrics
+* resub_delay - time interval of renewing subscriptions. New metrics
 can be created or deleted. Default is 60 seconds.
 * path_prefix - adds prefix for metrics that are sent to graphite. To automatically 
 get node@host, use atom '$node' which provides erlang:node/0 value.
@@ -101,7 +101,7 @@ name_part() = '_' | atom() | integer()
         {connect_timeout, 5000},
         {send_delay, 3000},
         {retries, 2},
-        {resubscription_delay, 60000},
+        {resub_delay, 60000},
         {path_prefix, [server1, '$node']},
         {subscriptions, [
             {

@@ -214,21 +214,26 @@ send(0, State) ->
     lager:warning("Error sending message. No more retries."),
     {ok, State};
 
-send(Retries, State) ->
-    case ensure_connection(State) of
-        {ok, ConnectedState} ->
-            case send(ConnectedState) of
-                {ok, AfterSentState} ->
-                    {ok, AfterSentState};
+send(Retries, State = #state{messages = Messages}) ->
+    case Messages of
+        [] ->
+            {ok, State};
+        _ ->
+            case ensure_connection(State) of
+                {ok, ConnectedState} ->
+                    case send(ConnectedState) of
+                        {ok, AfterSentState} ->
+                            {ok, AfterSentState};
+                        {error, Reason} ->
+                            lager:warning("Error sending message to the graphite server, reason: ~p", [Reason]),
+                            {ok, DisconnectedState} = disconnect(ConnectedState),
+                            send(Retries - 1, DisconnectedState)
+                    end;
                 {error, Reason} ->
-                    lager:warning("Error sending message to the graphite server, reason: ~p", [Reason]),
-                    {ok, DisconnectedState} = disconnect(ConnectedState),
+                    lager:warning("Unable to connect to the graphite server, reason: ~p", [Reason]),
+                    {ok, DisconnectedState} = disconnect(State),
                     send(Retries - 1, DisconnectedState)
-            end;
-        {error, Reason} ->
-            lager:warning("Unable to connect to the graphite server, reason: ~p", [Reason]),
-            {ok, DisconnectedState} = disconnect(State),
-            send(Retries - 1, DisconnectedState)
+            end
     end.
 
 
@@ -241,18 +246,13 @@ send(State) ->
         socket = Socket,
         messages = Messages
     } = State,
-    case Messages of
-        [] ->
-            {ok, State};
-        _ ->
-            PickleMessage = create_pickle_message(Messages, PathPrefix),
-            case gen_tcp:send(Socket, PickleMessage) of
-                ok ->
-                    NewState = State#state{messages = []},
-                    {ok, NewState};
-                {error, Reason} ->
-                    {error, Reason}
-            end
+    PickleMessage = create_pickle_message(Messages, PathPrefix),
+    case gen_tcp:send(Socket, PickleMessage) of
+        ok ->
+            NewState = State#state{messages = []},
+            {ok, NewState};
+        {error, Reason} ->
+            {error, Reason}
     end.
 
 
@@ -300,7 +300,7 @@ metric_elem_to_list(V) when is_list(V)    -> V.
 %%
 create_pickle_message_test_() ->
     SimpleMessage = #message{
-        probe       = [testZ, cpuUsage],
+        probe       = [testA, cpuUsage],
         data_point  = value,
         value       = 0,
         timestamp   = 1499931464
@@ -311,7 +311,7 @@ create_pickle_message_test_() ->
             binary:part(create_pickle_message([SimpleMessage], []), 0, 4)
         )},
         {"Check encoding for a single message and appending of a path prefix.", ?_assertEqual(
-            <<0,0,0,51,128,2,93,40,85,34,"server1.node1.testZ.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
+            <<0,0,0,51,128,2,93,40,85,34,"server1.node1.testA.cpuUsage.value",74,72,35,103,89,75,0,134,134,101,46>>,
             create_pickle_message([SimpleMessage], [server1, node1])
         )},
         {"Check if data point can be a number.", ?_assertEqual(
@@ -336,7 +336,7 @@ create_pickle_message_test_() ->
             <<
                 0,0,0,66,   % Message header
                 128,2,93,   % Message info
-                40,     85,20, "testZ.cpuUsage.value", 74,   % Message 1
+                40,     85,20, "testA.cpuUsage.value", 74,   % Message 1
                 72,35,103,89,   % Message1 timestamp
                 75,
                 0,              % Message1 value
@@ -350,7 +350,7 @@ create_pickle_message_test_() ->
             >>,
             create_pickle_message(
                 [
-                    #message{probe = [testZ, cpuUsage], data_point = value, value = 0,  timestamp = 1499931464},
+                    #message{probe = [testA, cpuUsage], data_point = value, value = 0,  timestamp = 1499931464},
                     #message{probe = [testB, memUsage], data_point = min,   value = 10, timestamp = 1499931999}
                 ], []
             )
