@@ -16,3 +16,4 @@ log/
 logs/
 /.project
 /.rebar/
+/_build/
