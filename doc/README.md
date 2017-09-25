@@ -29,8 +29,9 @@ number of retries when sending messages to Carbon on the same socket.
 Default is 2.
 * resub_delay - time interval of renewing subscriptions. New metrics
 can be created or deleted. Default is 60 seconds.
-* path_prefix - adds prefix for metrics that are sent to graphite. To automatically 
-get node@host, use atom '$node' which provides erlang:node/0 value.
+* path_prefix - adds prefix for metrics that are sent to graphite. To automatically
+ get node@host, use atom '$node' which provides `erlang:node/0` value with **periods 
+replaced** by '~'.
 * subscriptions - selection of metrics that are wanted to be seen in Graphite. 
 Read next section for detail information.
 
@@ -154,7 +155,7 @@ with `program1`:
 
 To check if metrics are sent to Graphite server, in `test/sys.config` set
 `{port, 2004}` instead of `{port, 8096}` and run `make itest`. Test will fail.
-Metrics `testZ.cpuUsage.value` and `testB.memUsage.min` should appear in Graphite.
+Metrics `testA.cpuUsage.value` and `testB.memUsage.min` should appear in Graphite.
 
 To remove these metrics run following command:
 

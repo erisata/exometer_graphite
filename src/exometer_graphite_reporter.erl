@@ -39,7 +39,7 @@
 -define(DEFAULT_SEND_DELAY, 10000).
 -define(DEFAULT_RETRIES, 2).
 -define(DEFAULT_PATH_PREFIX, ['$node']).
-
+-define(DEFAULT_PERIOD_REPLACER, "~").
 
 %%% ============================================================================
 %%% Internal state of the module.
@@ -72,7 +72,7 @@ exometer_init(_Opts) ->
     RawPathPrefix = exometer_graphite_app:get_env(path_prefix, ?DEFAULT_PATH_PREFIX),
     PathPrefix = lists:map(fun(Dir) ->
         case Dir of
-            '$node' -> erlang:node();
+            '$node' -> list_to_atom(re:replace(atom_to_list(erlang:node()), "\\.", ?DEFAULT_PERIOD_REPLACER, [global,{return, list}]));
             _ -> Dir
         end
     end, RawPathPrefix),
