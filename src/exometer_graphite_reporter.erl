@@ -283,6 +283,7 @@ format_metric_path(Probe, DataPoint) ->
 %%  Converts metric path elements to list (string)
 %%
 metric_elem_to_list(V) when is_atom(V)    -> erlang:atom_to_list(V);
+metric_elem_to_list(V) when is_binary(V)  -> erlang:binary_to_list(V);
 metric_elem_to_list(V) when is_integer(V) -> erlang:integer_to_list(V);
 metric_elem_to_list(V) when is_list(V)    -> V.
 
