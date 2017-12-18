@@ -261,12 +261,20 @@ send(State) ->
 %%  Path for Graphite metric is joined Exometer Probe and DataPoint.
 %%
 create_pickle_message(Messages, PathPrefix) ->
-    MakePickleMessage = fun(#message{probe = Probe, data_point = DataPoint, value = Value, timestamp = Timestamp}) ->
-        FullProbe = lists:append(PathPrefix, Probe),
-        ProbeBinary = erlang:list_to_binary(format_metric_path(FullProbe, DataPoint)),
-        {ProbeBinary, {Timestamp, Value}}
+    MakePickleMessage = fun
+        (#message{timestamp = undefined}) ->
+            false;
+        (#message{value = undefined}) ->
+            false;
+        (#message{probe = Probe, data_point = DataPoint, value = Value, timestamp = Timestamp}) when is_integer(Value) ->
+            FullProbe = lists:append(PathPrefix, Probe),
+            ProbeBinary = erlang:list_to_binary(format_metric_path(FullProbe, DataPoint)),
+            {true, {ProbeBinary, {Timestamp, Value}}};
+        (Message) ->
+            lager:warning("Dropping bad message: ~p", [Message]),
+            false
     end,
-    Payload = pickle:term_to_pickle(lists:map(MakePickleMessage, Messages)),
+    Payload = pickle:term_to_pickle(lists:filtermap(MakePickleMessage, Messages)),
     PayloadSize = byte_size(Payload),
     _PickleMessage = <<PayloadSize:32/unsigned-big, Payload/binary>>.
 
