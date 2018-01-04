@@ -266,7 +266,7 @@ create_pickle_message(Messages, PathPrefix) ->
             false;
         (#message{value = undefined}) ->
             false;
-        (#message{probe = Probe, data_point = DataPoint, value = Value, timestamp = Timestamp}) when is_integer(Value) ->
+        (#message{probe = Probe, data_point = DataPoint, value = Value, timestamp = Timestamp}) when is_number(Value) ->
             FullProbe = lists:append(PathPrefix, Probe),
             ProbeBinary = erlang:list_to_binary(format_metric_path(FullProbe, DataPoint)),
             {true, {ProbeBinary, {Timestamp, Value}}};
