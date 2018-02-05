@@ -19,7 +19,7 @@
 %%%
 -module(exometer_graphite_reporter).
 -behaviour(exometer_report).
--compile([{parse_transform, lager_transform}]).
+-include_lib("hut/include/hut.hrl").
 -export([
     exometer_init/1,
     exometer_info/2,
@@ -211,7 +211,7 @@ disconnect(State) ->
 %%  Manages connection to a socket and sending message to Graphite.
 %%
 send(0, State) ->
-    lager:warning("Error sending message. No more retries."),
+    ?log(error, "Error sending message. No more retries.", []),
     {ok, State};
 
 send(Retries, State = #state{messages = Messages}) ->
@@ -225,12 +225,12 @@ send(Retries, State = #state{messages = Messages}) ->
                         {ok, AfterSentState} ->
                             {ok, AfterSentState};
                         {error, Reason} ->
-                            lager:warning("Error sending message to the graphite server, reason: ~p", [Reason]),
+                            ?log(error, "Error sending message to the graphite server, reason: ~p", [Reason]),
                             {ok, DisconnectedState} = disconnect(ConnectedState),
                             send(Retries - 1, DisconnectedState)
                     end;
                 {error, Reason} ->
-                    lager:warning("Unable to connect to the graphite server, reason: ~p", [Reason]),
+                    ?log(error, "Unable to connect to the graphite server, reason: ~p", [Reason]),
                     {ok, DisconnectedState} = disconnect(State),
                     send(Retries - 1, DisconnectedState)
             end
@@ -271,7 +271,7 @@ create_pickle_message(Messages, PathPrefix) ->
             ProbeBinary = erlang:list_to_binary(format_metric_path(FullProbe, DataPoint)),
             {true, {ProbeBinary, {Timestamp, Value}}};
         (Message) ->
-            lager:warning("Dropping bad message: ~p", [Message]),
+            ?log(warning, "Dropping bad message: ~p", [Message]),
             false
     end,
     Payload = pickle:term_to_pickle(lists:filtermap(MakePickleMessage, Messages)),

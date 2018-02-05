@@ -21,7 +21,7 @@
     {applications, [
         kernel,
         stdlib,
-        lager,
-        exometer_core
+        exometer_core,
+        hut
     ]}
 ]}.
