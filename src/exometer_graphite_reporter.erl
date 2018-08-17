@@ -36,8 +36,9 @@
 -define(DEFAULT_CONNECT_TIMEOUT, 5000).
 -define(DEFAULT_SEND_DELAY, 10000).
 -define(DEFAULT_RETRIES, 2).
+-define(DEFAULT_SNAME, false).
 -define(DEFAULT_PATH_PREFIX, ['$node']).
--define(DEFAULT_PERIOD_REPLACER, "~").
+-define(DEFAULT_PERIOD_REPLACEMENT, "~").
 
 %%% ============================================================================
 %%% Internal state of the module.
@@ -68,9 +69,12 @@
 exometer_init(_Opts) ->
     SendDelay = exometer_graphite_app:get_env(send_delay, ?DEFAULT_SEND_DELAY),
     RawPathPrefix = exometer_graphite_app:get_env(path_prefix, ?DEFAULT_PATH_PREFIX),
+    PeriodReplacement = exometer_graphite_app:get_env(period_replacement, ?DEFAULT_PERIOD_REPLACEMENT),
+    ForceSname = exometer_graphite_app:get_env(force_sname, ?DEFAULT_SNAME),
     PathPrefix = lists:map(fun(Dir) ->
         case Dir of
-            '$node' -> list_to_atom(re:replace(atom_to_list(erlang:node()), "\\.", ?DEFAULT_PERIOD_REPLACER, [global,{return, list}]));
+            '$node' ->
+                format_node_name({force_sname, ForceSname}, PeriodReplacement);
             _ -> Dir
         end
     end, RawPathPrefix),
@@ -296,7 +300,25 @@ metric_elem_to_list(V) when is_binary(V)  -> erlang:binary_to_list(V);
 metric_elem_to_list(V) when is_integer(V) -> erlang:integer_to_list(V);
 metric_elem_to_list(V) when is_list(V)    -> V.
 
+%%  @private
+%%  Parses erlang:node() to replace periods and shorten the name
+%%  to sname equivalent if force_sname is true
+%%
+format_node_name({force_sname, true}, PeriodReplacement) ->
+    NodeName = case string:split(atom_to_list(erlang:node()), ".") of
+        [Sname, _Domain] -> Sname;
+        [Sname] -> Sname
+    end,
+    replace_period(NodeName, PeriodReplacement);
+format_node_name({force_sname, false}, PeriodReplacement) ->
+    replace_period(atom_to_list(erlang:node()), PeriodReplacement).
 
+%%  @private
+%%  Replaces period in a list with whatever is passed as PeriodReplacement
+%%  and converts the list to an atom
+%%
+replace_period(NodeName, PeriodReplacement) ->
+    list_to_atom(re:replace(NodeName, "\\.", PeriodReplacement, [global,{return, list}])).
 
 %%% ============================================================================
 %%% Test cases for internal functions.
