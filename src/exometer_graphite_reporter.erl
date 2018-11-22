@@ -210,9 +210,16 @@ disconnect(State) ->
 %%  @private
 %%  Manages connection to a socket and sending message to Graphite.
 %%
+%%  All the collected messages are dropped on failure, because
+%%  collecting them may cause a memory leak in the case, when
+%%  graphite is inaccessible.
+%%
 send(0, State) ->
     ?log(error, "Error sending message. No more retries.", []),
-    {ok, State};
+    NewState = State#state{
+        messages = []
+    },
+    {ok, NewState};
 
 send(Retries, State = #state{messages = Messages}) ->
     case Messages of
