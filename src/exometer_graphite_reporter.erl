@@ -33,6 +33,7 @@
     exometer_terminate/2
 ]).
 
+-define(DEFAULT_GRAPHITE_URL, "localhost:2004").
 -define(DEFAULT_CONNECT_TIMEOUT, 5000).
 -define(DEFAULT_SEND_DELAY, 10000).
 -define(DEFAULT_RETRIES, 2).
@@ -172,11 +173,10 @@ exometer_terminate(_, _) ->
 %%  Ensures that state has a socket.
 %%
 ensure_connection(State = #state{socket = undefined}) ->
-    HostEnv = os:getenv("EXOMETER_GRAPHITE_URL", "localhost:2004"),
+    HostEnv = os:getenv("EXOMETER_GRAPHITE_URL", ?DEFAULT_GRAPHITE_URL),
     [DefaultHost, DefaultPortStr] = string:tokens(HostEnv, ":"),
-    DefaultPort = list_to_integer(DefaultPortStr),
     Host = exometer_graphite_app:get_env(host, DefaultHost),
-    Port = exometer_graphite_app:get_env(port, DefaultPort),
+    Port = exometer_graphite_app:get_env(port, erlang:list_to_integer(DefaultPortStr)),
     ConnectTimeout = exometer_graphite_app:get_env(connect_timeout, ?DEFAULT_CONNECT_TIMEOUT),
     case gen_tcp:connect(Host, Port, [binary, {active, true}], ConnectTimeout) of
         {ok, NewSocket} ->
