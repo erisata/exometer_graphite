@@ -2,6 +2,8 @@
 
 # The exometer_graphite application #
 
+[![Build Status](https://travis-ci.org/erisata/exometer_graphite.png?branch=master)](https://travis-ci.org/erisata/exometer_graphite)
+
 This application pushes Exometer metrics to a Graphite server. Also, the
 application allows selection of relevant Exometer metrics that are created already
 or will be created in future.
