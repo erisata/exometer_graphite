@@ -32,8 +32,11 @@ Default is 2.
 * resub_delay - time interval of renewing subscriptions. New metrics
 can be created or deleted. Default is 60 seconds.
 * path_prefix - adds prefix for metrics that are sent to graphite. To automatically
- get node@host, use atom '$node' which provides `erlang:node/0` value with **periods 
-replaced** by '~'.
+get node@host, use atom '$node' which provides `erlang:node/0`
+* force_sname - forces the use of short names when passing $node as the prefix eg.
+node@host.domain.com would be converted to node@host
+* period_replacement - What character to use to replace periods in the graphite path
+ when using $node. defaults to '~'.
 * subscriptions - selection of metrics that are wanted to be seen in Graphite. 
 Read next section for detail information.
 
